@@ -371,10 +371,38 @@ function Students({ course }) {
   );
 }
 
+// ---------- Batch picker (assignments and quizzes) ----------
+// mode 'all' = every batch of the course; 'some' = only the ticked batches.
+const batchState = (item) => ({ batchMode: item?.batches?.length ? 'some' : 'all', batches: (item?.batches || []).map(String) });
+const batchPayload = (f) => (f.batchMode === 'some' ? f.batches : []);
+const forLabel = (item) => (item.batches?.length ? (item.batchNames?.join(', ') || 'Removed batch') : 'All batches');
+
+function BatchPicker({ course, value, onChange }) {
+  const state = useAsync(() => api.get(`/lms/courses/${course._id}/batches`), [course._id]);
+  const list = state.data?.items || [];
+  const toggle = (id) => onChange({ ...value, batches: value.batches.includes(id) ? value.batches.filter((x) => x !== id) : [...value.batches, id] });
+  if (state.data && list.length === 0) return <div className="muted small full">This course has no batches yet, so this goes to everyone enrolled. Create batches in the Batches tab to send work to one batch only.</div>;
+  return (
+    <div className="stack full" style={{ gap: 6 }}>
+      <b className="small">Who gets this?</b>
+      <label className="check"><input type="radio" name="batch-mode" checked={value.batchMode === 'all'} onChange={() => onChange({ ...value, batchMode: 'all' })} /> All batches of this course</label>
+      <label className="check"><input type="radio" name="batch-mode" checked={value.batchMode === 'some'} onChange={() => onChange({ ...value, batchMode: 'some' })} /> Only selected batches</label>
+      {value.batchMode === 'some' && (
+        <div className="stack" style={{ gap: 4, paddingLeft: 24 }}>
+          {state.loading && <span className="muted small">Loading batches...</span>}
+          {list.map((b) => (
+            <label className="check" key={b._id}><input type="checkbox" checked={value.batches.includes(String(b._id))} onChange={() => toggle(String(b._id))} /> {b.name}{b.isActive === false ? ' (finished)' : ''}<span className="muted small"> {b.enrolled} enrolled</span></label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------- Assignments ----------
 function AssignmentForm({ course, item, onClose, onSaved }) {
   const toast = useToast();
-  const [f, setF] = useState({ title: item?.title || '', instructions: item?.instructions || '', dueDate: item?.dueDate || '', maxPoints: item?.maxPoints ?? 100, allowLate: item?.allowLate ?? true });
+  const [f, setF] = useState({ title: item?.title || '', instructions: item?.instructions || '', dueDate: item?.dueDate || '', maxPoints: item?.maxPoints ?? 100, allowLate: item?.allowLate ?? true, ...batchState(item) });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -382,7 +410,9 @@ function AssignmentForm({ course, item, onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     setError('');
-    const body = { ...f, dueDate: f.dueDate || undefined, maxPoints: Number(f.maxPoints) };
+    if (f.batchMode === 'some' && f.batches.length === 0) { setBusy(false); return setError('Choose at least one batch, or select all batches.'); }
+    const { batchMode, ...rest } = f; // eslint-disable-line no-unused-vars
+    const body = { ...rest, batches: batchPayload(f), dueDate: f.dueDate || undefined, maxPoints: Number(f.maxPoints) };
     try {
       if (item) await api.patch(`/lms/assignments/${item._id}`, body); else await api.post(`/lms/courses/${course._id}/assignments`, body);
       toast('Assignment saved');
@@ -398,6 +428,7 @@ function AssignmentForm({ course, item, onClose, onSaved }) {
         <Field label="Instructions" full><textarea rows={6} value={f.instructions} onChange={set('instructions')} /></Field>
         <Field label="Due date"><input type="date" value={f.dueDate} onChange={set('dueDate')} /></Field>
         <Field label="Total marks"><input type="number" min="1" value={f.maxPoints} onChange={set('maxPoints')} required /></Field>
+        <BatchPicker course={course} value={f} onChange={(v) => setF((x) => ({ ...x, ...v }))} />
         <label className="check full"><input type="checkbox" checked={f.allowLate} onChange={(e) => setF((x) => ({ ...x, allowLate: e.target.checked }))} /> Accept late work (it is marked as late)</label>
       </form>
     </Modal>
@@ -468,7 +499,7 @@ function Assignments({ course }) {
               <div className="list-row" key={a._id}>
                 <div className="grow">
                   <div className="title" style={{ fontWeight: 600 }}>{a.title}</div>
-                  <div className="muted small">{a.dueDate ? `Due ${fmtDate(a.dueDate, true)}` : 'No deadline'} · {a.maxPoints} marks · {a.submissions} submitted, {a.graded} marked</div>
+                  <div className="muted small">{a.dueDate ? `Due ${fmtDate(a.dueDate, true)}` : 'No deadline'} · {a.maxPoints} marks · {a.submissions} submitted, {a.graded} marked · <b>{forLabel(a)}</b></div>
                 </div>
                 <div className="row" style={{ gap: 6 }}>
                   <button className="btn sm primary" onClick={() => setViewing(a)}>Mark work</button>
@@ -498,8 +529,8 @@ function QuizForm({ course, item, onClose, onSaved }) {
 
   useEffect(() => {
     if (f) return;
-    if (!item) setF({ title: '', description: '', maxAttempts: 1, published: true, questions: [blankQ()] });
-    else if (full.data) { const q = full.data.quiz; setF({ title: q.title, description: q.description || '', maxAttempts: q.maxAttempts, published: q.published, questions: q.questions.map((x) => ({ ...x })) }); }
+    if (!item) setF({ title: '', description: '', maxAttempts: 1, published: true, ...batchState(null), questions: [blankQ()] });
+    else if (full.data) { const q = full.data.quiz; setF({ title: q.title, description: q.description || '', maxAttempts: q.maxAttempts, published: q.published, ...batchState(q), questions: q.questions.map((x) => ({ ...x })) }); }
   }, [full.data, item, f]);
 
   const upQ = (i, patch) => setF((x) => ({ ...x, questions: x.questions.map((q, n) => (n === i ? { ...q, ...patch } : q)) }));
@@ -508,7 +539,9 @@ function QuizForm({ course, item, onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     setError('');
-    const body = { ...f, maxAttempts: Number(f.maxAttempts), questions: f.questions.map((q) => ({ ...q, options: q.options.filter((o) => o.trim()), points: Number(q.points) || 1 })) };
+    if (f.batchMode === 'some' && f.batches.length === 0) { setBusy(false); return setError('Choose at least one batch, or select all batches.'); }
+    const { batchMode, ...rest } = f; // eslint-disable-line no-unused-vars
+    const body = { ...rest, batches: batchPayload(f), maxAttempts: Number(f.maxAttempts), questions: f.questions.map((q) => ({ ...q, options: q.options.filter((o) => o.trim()), points: Number(q.points) || 1 })) };
     // correct answer must still point at the same option after blanks are dropped
     body.questions = f.questions.map((q) => {
       const kept = q.options.map((o, i) => ({ o: o.trim(), i })).filter((x) => x.o);
@@ -531,6 +564,7 @@ function QuizForm({ course, item, onClose, onSaved }) {
             <Field label="Quiz title" full><input type="text" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus /></Field>
             <Field label="Attempts allowed" hint="0 means unlimited."><input type="number" min="0" max="20" value={f.maxAttempts} onChange={(e) => setF({ ...f, maxAttempts: e.target.value })} /></Field>
             <label className="check"><input type="checkbox" checked={f.published} onChange={(e) => setF({ ...f, published: e.target.checked })} /> Visible to students</label>
+            <BatchPicker course={course} value={f} onChange={(v) => setF((x) => ({ ...x, ...v }))} />
           </div>
           {f.questions.map((q, i) => (
             <div className="q-card" key={q._id || i}>
@@ -585,7 +619,7 @@ function Quizzes({ course }) {
           <div className="panel">{state.data.items.map((q) => (
             <div className="list-row" key={q._id}>
               <div className="grow"><div className="title" style={{ fontWeight: 600 }}>{q.title} {!q.published && <span className="chip muted">Hidden</span>}</div>
-                <div className="muted small">{q.questionCount} questions · {q.totalPoints} marks · {q.attempts} attempts</div></div>
+                <div className="muted small">{q.questionCount} questions · {q.totalPoints} marks · {q.attempts} attempts · <b>{forLabel(q)}</b></div></div>
               <div className="row" style={{ gap: 6 }}>
                 <button className="btn sm" onClick={() => setViewing(q)}>Results</button>
                 <button className="btn sm" onClick={() => setEditing(q)}>Edit</button>

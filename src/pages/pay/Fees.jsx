@@ -15,29 +15,44 @@ function addMonths(key, n) {
   return d.toISOString().slice(0, 10);
 }
 
-function PlanForm({ studentId, account, onSaved }) {
+function PlanForm({ studentId, account, paid = 0, onSaved }) {
   const toast = useToast();
-  const [f, setF] = useState({ courseFee: account?.courseFee ?? '', discount: account?.discount ?? 0, note: account?.note || '' });
+  const isNew = !account;
+  // New plan: admission fee starts at Rs 1000 (editable). Old plans keep whatever they had (0 if none).
+  const [f, setF] = useState({ courseFee: account?.courseFee ?? '', admissionFee: account ? (account.admissionFee ?? 0) : 1000, discount: account?.discount ?? 0, note: account?.note || '' });
+  const [adv, setAdv] = useState({ amount: '', method: 'cash', reference: '' });
   const [ins, setIns] = useState(account?.installments?.map((i) => ({ ...i })) || []);
-  const [gen, setGen] = useState({ n: 3, start: todayKey() });
+  const [gen, setGen] = useState({ n: 3, start: addMonths(todayKey(), 1) });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const total = Math.max(0, (Number(f.courseFee) || 0) - (Number(f.discount) || 0));
+  const total = Math.max(0, (Number(f.admissionFee) || 0) + (Number(f.courseFee) || 0) - (Number(f.discount) || 0));
   const sum = ins.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  // Money already in hand: the advance typed now (new plan) or what was already received (existing plan).
+  const upfront = isNew ? Number(adv.amount) || 0 : paid;
+  const remaining = total - upfront;
 
   function generate() {
+    setError('');
+    if (remaining < 0) return setError('Advance cannot be more than the total fee.');
     const n = Math.max(1, Math.min(24, Number(gen.n) || 1));
-    const each = Math.floor(total / n);
-    setIns(Array.from({ length: n }, (_, i) => ({ label: `Installment ${i + 1}`, dueDate: addMonths(gen.start, i), amount: i === n - 1 ? total - each * (n - 1) : each })));
+    const rows = [];
+    if (upfront > 0) rows.push({ label: isNew ? 'Advance' : 'Received so far', dueDate: todayKey(), amount: upfront });
+    if (remaining > 0) {
+      const each = Math.floor(remaining / n);
+      for (let i = 0; i < n; i += 1) rows.push({ label: `Installment ${i + 1}`, dueDate: addMonths(gen.start, i), amount: i === n - 1 ? remaining - each * (n - 1) : each });
+    }
+    setIns(rows);
   }
   async function save(e) {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      await api.put(`/pay/fees/${studentId}`, { courseFee: Number(f.courseFee), discount: Number(f.discount) || 0, note: f.note, installments: ins.map((i) => ({ ...i, amount: Number(i.amount) })) });
+      const body = { courseFee: Number(f.courseFee), admissionFee: Number(f.admissionFee) || 0, discount: Number(f.discount) || 0, note: f.note, installments: ins.map((i) => ({ ...i, amount: Number(i.amount) })) };
+      if (isNew && upfront > 0) body.advance = { amount: upfront, date: todayKey(), method: adv.method, reference: adv.reference };
+      const r = await api.put(`/pay/fees/${studentId}`, body);
       toast('Fee plan saved');
-      onSaved();
+      onSaved(r.payment);
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   }
 
@@ -45,12 +60,20 @@ function PlanForm({ studentId, account, onSaved }) {
     <form className="stack" onSubmit={save}>
       {error && <div className="alert bad" role="alert">{error}</div>}
       <div className="form-grid">
+        <Field label="Admission fee (Rs)" hint="One-time fee, added to the course fee."><input type="number" min="0" value={f.admissionFee} onChange={(e) => setF({ ...f, admissionFee: e.target.value })} /></Field>
         <Field label="Course fee (Rs)"><input type="number" min="1" value={f.courseFee} onChange={(e) => setF({ ...f, courseFee: e.target.value })} required /></Field>
         <Field label="Discount (Rs)"><input type="number" min="0" value={f.discount} onChange={(e) => setF({ ...f, discount: e.target.value })} /></Field>
-        <div className="full"><b>Total to pay: {rs(total)}</b></div>
-        <Field label="Split into" hint="Equal monthly installments. You can edit each one after.">
+        <div className="full"><b>Total to pay: {rs(total)}</b><div className="muted small">{rs(Number(f.admissionFee) || 0)} admission + {rs(Number(f.courseFee) || 0)} course{Number(f.discount) ? ` - ${rs(Number(f.discount))} discount` : ''}</div></div>
+        {isNew && (
+          <>
+            <Field label="Advance received now (Rs)" hint="Leave empty if the student paid nothing yet. A receipt is created."><input type="number" min="0" max={total || undefined} value={adv.amount} onChange={(e) => setAdv({ ...adv, amount: e.target.value })} /></Field>
+            <Field label="Advance method"><select value={adv.method} onChange={(e) => setAdv({ ...adv, method: e.target.value })}>{Object.entries(METHOD_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
+          </>
+        )}
+        <div className="full"><b>{isNew ? 'Remaining after advance' : 'Remaining balance'}: {rs(Math.max(0, remaining))}</b></div>
+        <Field label="Split remaining into" hint="Number of monthly installments, and the first due date. You can edit each row after.">
           <div className="row" style={{ gap: 8 }}>
-            <input type="number" min="1" max="24" value={gen.n} onChange={(e) => setGen({ ...gen, n: e.target.value })} style={{ width: 80 }} aria-label="Number of installments" />
+            <input type="number" min="1" max="24" value={gen.n} onChange={(e) => setGen({ ...gen, n: e.target.value })} style={{ width: 80 }} aria-label="Number of months" />
             <input type="date" value={gen.start} onChange={(e) => setGen({ ...gen, start: e.target.value })} aria-label="First due date" />
             <button type="button" className="btn" onClick={generate} disabled={!total}>Create</button>
           </div>
@@ -64,7 +87,8 @@ function PlanForm({ studentId, account, onSaved }) {
           <button type="button" className="btn sm ghost" onClick={() => setIns(ins.filter((_, k) => k !== n))}>Remove</button>
         </div>
       ))}
-      {ins.length > 0 && <div className={sum === total ? 'muted small' : 'small'} style={{ color: sum === total ? undefined : 'var(--bad)' }}>Installments add up to {rs(sum)} of {rs(total)}</div>}
+      {ins.length > 0 && <div className={sum === total ? 'muted small' : 'small'} style={{ color: sum === total ? undefined : 'var(--bad)' }}>Schedule adds up to {rs(sum)} of {rs(total)}</div>}
+      {isNew && upfront > 0 && ins.length === 0 && <div className="muted small">Press Create to build the monthly schedule for the remaining {rs(Math.max(0, remaining))}.</div>}
       <Field label="Note"><input type="text" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} maxLength={500} /></Field>
       <div><button className="btn primary" disabled={busy}>{busy ? 'Saving...' : 'Save fee plan'}</button></div>
     </form>
@@ -128,12 +152,13 @@ function Ledger({ studentId, onClose, onChanged }) {
                 {sm.next && <div><span>Next due</span><b>{fmtDate(sm.next.dueDate)}</b></div>}
               </div>
             )}
+            {d.account && <div className="muted small">{rs(d.account.admissionFee || 0)} admission + {rs(d.account.courseFee)} course{d.account.discount ? ` - ${rs(d.account.discount)} discount` : ''}</div>}
             {sm && <ProgressBar value={sm.total ? Math.round((sm.paid / sm.total) * 100) : 0} label="Paid" />}
             <div className="seg" role="tablist">
               <button className={view === 'pay' ? 'on' : ''} onClick={() => setView('pay')} disabled={!d.account}>Payments</button>
               <button className={view === 'plan' ? 'on' : ''} onClick={() => setView('plan')}>{d.account ? 'Fee plan' : 'Set fee plan'}</button>
             </div>
-            {(view === 'plan' || !d.account) ? <PlanForm studentId={studentId} account={d.account} onSaved={() => { setView('pay'); reload(); }} />
+            {(view === 'plan' || !d.account) ? <PlanForm studentId={studentId} account={d.account} paid={sm?.paid || 0} onSaved={(p) => { setView('pay'); reload(); if (p) window.open(`/print/receipt/${p._id}`, '_blank'); }} />
               : (
                 <>
                   {sm.balance > 0 && <PaymentForm studentId={studentId} balance={sm.balance} onSaved={(p) => { reload(); window.open(`/print/receipt/${p._id}`, '_blank'); }} />}

@@ -46,6 +46,7 @@ export default function Shell({ module, items, links, accountPath, rootPath, hid
               <NavLink key={i.to} to={i.to} end={i.end}>
                 {i.icon}
                 {i.label}
+                {i.badge > 0 && <span className="nav-badge" title={i.badgeTitle}>{i.badge}</span>}
               </NavLink>
             )))}
         </nav>

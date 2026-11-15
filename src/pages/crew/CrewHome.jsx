@@ -9,6 +9,7 @@ import { PriorityChip, ago } from './shared.jsx';
 export default function CrewHome() {
   const { user } = useAuth();
   const state = useAsync(() => api.get('/crew/home'), []);
+  const due = useAsync(() => api.get('/flow/reminders').catch(() => null), []); // cards in NexoneZ Flow that are overdue or due today
   const d = state.data;
   const rec = d?.today;
   const status = !rec ? { tone: 'muted', text: 'Not checked in yet', cta: 'Check in' }
@@ -23,6 +24,11 @@ export default function CrewHome() {
           <p className="sub">{user.designation || (user.role === 'intern' ? 'Intern' : 'Employee')} at NexoneZ Software House</p>
         </div>
       </div>
+      {due.data && due.data.overdue + due.data.dueToday > 0 && (
+        <div className={`alert ${due.data.overdue ? 'bad' : 'warn'}`} style={{ marginBottom: 16 }}>
+          <b>In NexoneZ Flow:</b> {due.data.overdue > 0 && `${due.data.overdue} overdue card${due.data.overdue > 1 ? 's' : ''}`}{due.data.overdue > 0 && due.data.dueToday > 0 && ' and '}{due.data.dueToday > 0 && `${due.data.dueToday} due today`}. <Link to="/flow">Open My work</Link>
+        </div>
+      )}
       <Loading state={state}>
         {d && (
           <>

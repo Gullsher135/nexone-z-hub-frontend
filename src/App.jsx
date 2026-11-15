@@ -52,6 +52,7 @@ import StudentLayout from './layouts/StudentLayout.jsx';
 import LearnAdminHome from './pages/learn/LearnAdminHome.jsx';
 import CourseManage from './pages/learn/CourseManage.jsx';
 import Teachers from './pages/learn/Teachers.jsx';
+import ShareProject from './pages/ShareProject.jsx';
 import StudentHome from './pages/learn/StudentHome.jsx';
 import MyCourses from './pages/learn/MyCourses.jsx';
 import CoursePlayer from './pages/learn/CoursePlayer.jsx';
@@ -91,6 +92,7 @@ export default function App() {
         <Route path="/print/letter/:id" element={<LetterDoc />} />
       </Route>
       <Route path="/verify/:code" element={<Verify />} />
+      <Route path="/share/:token" element={<ShareProject />} />
 
       <Route element={<Protected role="student" />}>
         <Route path="/learn" element={<StudentLayout />}>

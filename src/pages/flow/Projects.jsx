@@ -6,7 +6,7 @@ import { useAsync } from '../../lib/useAsync.js';
 import { useToast } from '../../lib/toast.jsx';
 import { Empty, Field, Loading, Modal, ProgressBar } from '../../components.jsx';
 import { fmtDate, rs } from '../../lib/format.js';
-import { PROJECT_STATUS, PROJECT_TONE } from './shared.jsx';
+import { PROJECT_STATUS, PROJECT_TONE, RagChip } from './shared.jsx';
 
 // Create or edit a project (admin only).
 export function ProjectForm({ project, onClose, onSaved }) {
@@ -74,7 +74,7 @@ export default function Projects() {
           <div className="proj-grid">
             {state.data.items.map((p) => (
               <Link key={p._id} to={`${base}/projects/${p._id}`} className="panel proj-card">
-                <div className="row"><span className="muted small grow">{p.code}</span><span className={`chip ${PROJECT_TONE[p.status]}`}>{PROJECT_STATUS[p.status]}</span></div>
+                <div className="row" style={{ gap: 6 }}><span className="muted small grow">{p.code}</span>{p.health && p.status !== 'completed' && p.health.rag !== 'none' && <RagChip rag={p.health.rag} />}<span className={`chip ${PROJECT_TONE[p.status]}`}>{PROJECT_STATUS[p.status]}</span></div>
                 <h3>{p.name}</h3>
                 <div className="muted small">{p.client ? p.client.name : 'Internal project'}{p.lead ? ` · Lead ${p.lead.name}` : ''}</div>
                 <ProgressBar value={p.progress.percent} label={`${p.name} progress`} />
