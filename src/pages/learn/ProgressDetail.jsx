@@ -104,7 +104,9 @@ export default function ProgressDetail({ data }) {
                     <span className="grow">{i.title}</span>
                     {i.status === 'attempted'
                       ? <span className="chip ok">{i.best}/{i.maxScore}{i.attempts > 1 ? ` · ${i.attempts} tries` : ''}</span>
-                      : <span className="chip bad">Not attempted</span>}
+                      : i.status === 'submitted'
+                        ? <span className="chip info">Waiting for marks</span>
+                        : <span className="chip bad">Not attempted</span>}
                   </div>
                 ))}
               </div>

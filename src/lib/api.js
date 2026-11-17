@@ -55,6 +55,27 @@ export async function downloadFile(path, filename) {
   URL.revokeObjectURL(url);
 }
 
+// Sends one file as raw bytes (any format, up to 10 MB). Returns { file, name, size, mime }.
+export const MAX_UPLOAD_MB = 10;
+export async function uploadFile(file, { course, kind }) {
+  if (file.size > MAX_UPLOAD_MB * 1024 * 1024) throw new Error(`${file.name} is larger than ${MAX_UPLOAD_MB} MB`);
+  if (file.size === 0) throw new Error(`${file.name} is empty`);
+  let res;
+  try {
+    res = await fetch(`${BASE}/lms/files${qs({ course, kind, name: file.name, type: file.type })}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+      body: file,
+    });
+  } catch {
+    throw new Error('Cannot reach the server. Check your internet connection and try again.');
+  }
+  let data = null;
+  try { data = await res.json(); } catch { /* empty body */ }
+  if (!res.ok) throw new Error(data?.message || `Upload failed (${res.status})`);
+  return data.file;
+}
+
 export const qs = (obj) => {
   const p = new URLSearchParams();
   Object.entries(obj).forEach(([k, v]) => {

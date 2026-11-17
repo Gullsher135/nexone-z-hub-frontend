@@ -7,6 +7,8 @@ import { useToast } from '../../lib/toast.jsx';
 import { fmtDate } from '../../lib/format.js';
 import { Cover, Empty, Field, Loading, Modal, ProgressBar, Tabs, LEVEL_LABEL } from '../../components.jsx';
 import ProgressDetail, { PART_LABEL, PART_SHORT } from './ProgressDetail.jsx';
+import { FileList, FilePicker } from '../../lib/files.jsx';
+import { CodeBlock, SectionHead, groupSections, isAutoQ, marksLabel } from './quizParts.jsx';
 
 const TABS = [
   { value: 'content', label: 'Lessons' },
@@ -402,7 +404,8 @@ function BatchPicker({ course, value, onChange }) {
 // ---------- Assignments ----------
 function AssignmentForm({ course, item, onClose, onSaved }) {
   const toast = useToast();
-  const [f, setF] = useState({ title: item?.title || '', instructions: item?.instructions || '', dueDate: item?.dueDate || '', maxPoints: item?.maxPoints ?? 100, allowLate: item?.allowLate ?? true, ...batchState(item) });
+  const [f, setF] = useState({ title: item?.title || '', instructions: item?.instructions || '', dueDate: item?.dueDate || '', maxPoints: item?.maxPoints ?? 100, allowLate: item?.allowLate ?? true, requireAttachment: item ? !!item.requireAttachment : true, ...batchState(item) });
+  const [files, setFiles] = useState(item?.attachments || []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -412,7 +415,7 @@ function AssignmentForm({ course, item, onClose, onSaved }) {
     setError('');
     if (f.batchMode === 'some' && f.batches.length === 0) { setBusy(false); return setError('Choose at least one batch, or select all batches.'); }
     const { batchMode, ...rest } = f; // eslint-disable-line no-unused-vars
-    const body = { ...rest, batches: batchPayload(f), dueDate: f.dueDate || undefined, maxPoints: Number(f.maxPoints) };
+    const body = { ...rest, batches: batchPayload(f), attachmentIds: files.map((x) => x.file), dueDate: f.dueDate || undefined, maxPoints: Number(f.maxPoints) };
     try {
       if (item) await api.patch(`/lms/assignments/${item._id}`, body); else await api.post(`/lms/courses/${course._id}/assignments`, body);
       toast('Assignment saved');
@@ -426,9 +429,11 @@ function AssignmentForm({ course, item, onClose, onSaved }) {
         {error && <div className="alert bad full" role="alert">{error}</div>}
         <Field label="Title" full><input type="text" value={f.title} onChange={set('title')} required autoFocus /></Field>
         <Field label="Instructions" full><textarea rows={6} value={f.instructions} onChange={set('instructions')} /></Field>
+        <Field label="Files for students (optional)" full hint="Upload the assignment PDF, starter code or data files."><FilePicker course={course._id} kind="assignment" files={files} onChange={setFiles} /></Field>
         <Field label="Due date"><input type="date" value={f.dueDate} onChange={set('dueDate')} /></Field>
         <Field label="Total marks"><input type="number" min="1" value={f.maxPoints} onChange={set('maxPoints')} required /></Field>
         <BatchPicker course={course} value={f} onChange={(v) => setF((x) => ({ ...x, ...v }))} />
+        <label className="check full"><input type="checkbox" checked={f.requireAttachment} onChange={(e) => setF((x) => ({ ...x, requireAttachment: e.target.checked }))} /> Students must upload a file or add a link to their work</label>
         <label className="check full"><input type="checkbox" checked={f.allowLate} onChange={(e) => setF((x) => ({ ...x, allowLate: e.target.checked }))} /> Accept late work (it is marked as late)</label>
       </form>
     </Modal>
@@ -463,8 +468,9 @@ function Submissions({ assignment, onClose }) {
                     {s.gradedAt ? <span className="chip ok">{s.grade}/{assignment.maxPoints}</span> : <span className="chip muted">Not marked</span>}
                   </div>
                   <div className="muted small">Submitted {new Date(s.submittedAt).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', dateStyle: 'medium', timeStyle: 'short' })}</div>
+                  {s.files?.length > 0 && <FileList files={s.files} />}
+                  {(s.links?.length ? s.links : s.link ? [s.link] : []).map((l) => <p key={l} style={{ margin: 0 }}><a href={l} target="_blank" rel="noreferrer noopener">{l}</a></p>)}
                   {s.text && <p className="sub-text">{s.text}</p>}
-                  {s.link && <p><a href={s.link} target="_blank" rel="noreferrer noopener">{s.link}</a></p>}
                   <div className="grade-row">
                     <Field label={`Marks (of ${assignment.maxPoints})`}><input type="number" min="0" max={assignment.maxPoints} value={v.grade ?? s.grade ?? ''} onChange={(e) => setEdit((x) => ({ ...x, [s._id]: { ...v, grade: e.target.value } }))} /></Field>
                     <Field label="Feedback"><input type="text" value={v.feedback ?? s.feedback ?? ''} onChange={(e) => setEdit((x) => ({ ...x, [s._id]: { ...v, feedback: e.target.value } }))} /></Field>
@@ -518,7 +524,41 @@ function Assignments({ course }) {
 }
 
 // ---------- Quizzes ----------
-const blankQ = () => ({ text: '', options: ['', '', '', ''], correctIndex: 0, points: 1 });
+// ---------- Quizzes: daily (multiple choice) and weekly grand quizzes (full paper with sections) ----------
+let rowUid = 0;
+const uid = () => { rowUid += 1; return `r${rowUid}`; };
+const blankQ = (type = 'mcq') => ({ row: 'q', uid: uid(), type, text: '', code: '', options: type === 'mcq' ? ['', '', '', ''] : [], correctIndex: 0, points: 1, modelAnswer: '', showCode: false });
+const blankSection = (title = '') => ({ row: 'section', uid: uid(), title });
+
+// Flat question list from the server -> editable rows (a section row wherever the section name changes).
+function rowsFromQuiz(questions) {
+  const rows = [];
+  let last = null;
+  questions.forEach((q) => {
+    const sec = q.section || '';
+    if (sec !== last && (sec || last !== null)) rows.push(blankSection(sec));
+    last = sec;
+    rows.push({ row: 'q', uid: uid(), _id: q._id, type: q.type || 'mcq', text: q.text, code: q.code || '', options: q.type === 'tf' ? [] : [...(q.options || [])], correctIndex: q.correctIndex || 0, points: q.points, modelAnswer: q.modelAnswer || '', showCode: !!q.code });
+  });
+  return rows.length ? rows : [blankQ()];
+}
+
+// Teacher-friendly JSON (see the sample file) -> the same rows.
+function rowsFromImport(data) {
+  const rows = [];
+  const letter = (a) => (typeof a === 'string' ? 'ABCDEF'.indexOf(a.trim().toUpperCase()) : Number(a));
+  (data.sections || []).forEach((s) => {
+    if (s.title) rows.push(blankSection(s.title));
+    (s.questions || []).forEach((q) => {
+      const type = ['mcq', 'tf', 'short', 'code'].includes(q.type) ? q.type : 'mcq';
+      const r = { ...blankQ(type), text: String(q.text || ''), code: String(q.code || ''), points: Number(q.marks ?? q.points) || 1, modelAnswer: String(q.modelAnswer || ''), showCode: !!q.code };
+      if (type === 'mcq') { r.options = (q.options || []).map(String); r.correctIndex = Math.max(0, letter(q.answer)); }
+      if (type === 'tf') r.correctIndex = q.answer === false || String(q.answer).toLowerCase() === 'false' ? 1 : 0;
+      rows.push(r);
+    });
+  });
+  return rows;
+}
 
 function QuizForm({ course, item, onClose, onSaved }) {
   const toast = useToast();
@@ -529,24 +569,56 @@ function QuizForm({ course, item, onClose, onSaved }) {
 
   useEffect(() => {
     if (f) return;
-    if (!item) setF({ title: '', description: '', maxAttempts: 1, published: true, ...batchState(null), questions: [blankQ()] });
-    else if (full.data) { const q = full.data.quiz; setF({ title: q.title, description: q.description || '', maxAttempts: q.maxAttempts, published: q.published, ...batchState(q), questions: q.questions.map((x) => ({ ...x })) }); }
+    if (!item) setF({ title: '', description: '', instructions: '', kind: 'daily', timeLimit: 0, revealAnswers: true, maxAttempts: 1, published: true, ...batchState(null), rows: [blankQ()] });
+    else if (full.data) {
+      const q = full.data.quiz;
+      setF({ title: q.title, description: q.description || '', instructions: q.instructions || '', kind: q.kind || 'daily', timeLimit: q.timeLimit || 0, revealAnswers: q.revealAnswers !== false, maxAttempts: q.maxAttempts, published: q.published, ...batchState(q), rows: rowsFromQuiz(q.questions) });
+    }
   }, [full.data, item, f]);
 
-  const upQ = (i, patch) => setF((x) => ({ ...x, questions: x.questions.map((q, n) => (n === i ? { ...q, ...patch } : q)) }));
+  const weekly = f?.kind === 'weekly';
+  const upRow = (i, patch) => setF((x) => ({ ...x, rows: x.rows.map((r, n) => (n === i ? { ...r, ...patch } : r)) }));
+  const addRow = (r) => setF((x) => ({ ...x, rows: [...x.rows, r] }));
+  const move = (i, d) => setF((x) => { const rows = [...x.rows]; const j = i + d; if (j < 0 || j >= rows.length) return x; [rows[i], rows[j]] = [rows[j], rows[i]]; return { ...x, rows }; });
+  const removeRow = (i) => setF((x) => ({ ...x, rows: x.rows.filter((_, n) => n !== i) }));
+  const qRows = (f?.rows || []).filter((r) => r.row === 'q');
+  const totalMarks = qRows.reduce((s, r) => s + (Number(r.points) || 0), 0);
+
+  function setKind(kind) {
+    setF((x) => ({ ...x, kind, revealAnswers: kind === 'weekly' ? false : true, timeLimit: kind === 'weekly' ? (x.timeLimit || 45) : 0, maxAttempts: kind === 'weekly' ? 1 : x.maxAttempts }));
+  }
+
+  async function importFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const rows = rowsFromImport(data);
+      if (!rows.some((r) => r.row === 'q')) throw new Error('No questions found in the file');
+      setF((x) => ({ ...x, title: data.title || x.title, description: data.description ?? x.description, instructions: data.instructions ?? x.instructions, kind: data.kind === 'weekly' ? 'weekly' : 'daily', timeLimit: Number(data.timeLimit) || 0, revealAnswers: data.revealAnswers !== undefined ? !!data.revealAnswers : x.revealAnswers, maxAttempts: data.maxAttempts ?? x.maxAttempts, rows }));
+      toast(`Imported ${rows.filter((r) => r.row === 'q').length} questions. Check them, then save.`);
+    } catch (err) { toast(`Could not read the file: ${err.message}`, 'bad'); }
+  }
 
   async function save(e) {
     e.preventDefault();
-    setBusy(true);
     setError('');
-    if (f.batchMode === 'some' && f.batches.length === 0) { setBusy(false); return setError('Choose at least one batch, or select all batches.'); }
-    const { batchMode, ...rest } = f; // eslint-disable-line no-unused-vars
-    const body = { ...rest, batches: batchPayload(f), maxAttempts: Number(f.maxAttempts), questions: f.questions.map((q) => ({ ...q, options: q.options.filter((o) => o.trim()), points: Number(q.points) || 1 })) };
-    // correct answer must still point at the same option after blanks are dropped
-    body.questions = f.questions.map((q) => {
-      const kept = q.options.map((o, i) => ({ o: o.trim(), i })).filter((x) => x.o);
-      return { _id: q._id, text: q.text, points: Number(q.points) || 1, options: kept.map((x) => x.o), correctIndex: kept.findIndex((x) => x.i === q.correctIndex) };
+    if (f.batchMode === 'some' && f.batches.length === 0) return setError('Choose at least one batch, or select all batches.');
+    const questions = [];
+    let section = '';
+    f.rows.forEach((r) => {
+      if (r.row === 'section') { section = r.title.trim(); return; }
+      const base = { _id: r._id, type: r.type, section, text: r.text, code: r.code, points: Number(r.points) || 1, modelAnswer: r.modelAnswer };
+      if (r.type === 'mcq') {
+        // the correct answer must still point at the same option after blanks are dropped
+        const kept = r.options.map((o, i) => ({ o: o.trim(), i })).filter((x) => x.o);
+        questions.push({ ...base, options: kept.map((x) => x.o), correctIndex: kept.findIndex((x) => x.i === r.correctIndex) });
+      } else questions.push({ ...base, options: [], correctIndex: r.correctIndex });
     });
+    const { batchMode, rows, ...rest } = f; // eslint-disable-line no-unused-vars
+    const body = { ...rest, batches: batchPayload(f), maxAttempts: Number(f.maxAttempts), timeLimit: Number(f.timeLimit) || 0, questions };
+    setBusy(true);
     try {
       if (item) await api.patch(`/lms/quizzes/${item._id}`, body); else await api.post(`/lms/courses/${course._id}/quizzes`, body);
       toast('Quiz saved');
@@ -554,50 +626,194 @@ function QuizForm({ course, item, onClose, onSaved }) {
     } catch (err) { setError(err.message); setBusy(false); }
   }
 
+  let n = 0;
   return (
     <Modal wide title={item ? 'Edit quiz' : 'New quiz'} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" form="quiz-form" disabled={busy || !f}>{busy ? 'Saving...' : 'Save quiz'}</button></>}>
+      footer={<><span className="muted small grow">{qRows.length} questions · {totalMarks} marks</span><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" form="quiz-form" disabled={busy || !f}>{busy ? 'Saving...' : 'Save quiz'}</button></>}>
       {!f ? <Loading state={full}><div /></Loading> : (
         <form id="quiz-form" onSubmit={save} className="stack">
           {error && <div className="alert bad" role="alert">{error}</div>}
           <div className="form-grid">
+            <Field label="Type of quiz" full hint={weekly ? 'Weekly grand quiz: sections with multiple choice, true/false, short answers and coding questions. Written answers are marked by you.' : 'Daily quiz: multiple choice and true/false only, marked automatically.'}>
+              <select value={f.kind} onChange={(e) => setKind(e.target.value)}>
+                <option value="daily">Daily quiz (marked automatically)</option>
+                <option value="weekly">Weekly grand quiz (sections, written answers)</option>
+              </select>
+            </Field>
             <Field label="Quiz title" full><input type="text" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus /></Field>
+            {weekly && <Field label="Instructions for students" full><textarea rows={3} value={f.instructions} onChange={(e) => setF({ ...f, instructions: e.target.value })} placeholder="Attempt all questions. Write neat answers..." /></Field>}
             <Field label="Attempts allowed" hint="0 means unlimited."><input type="number" min="0" max="20" value={f.maxAttempts} onChange={(e) => setF({ ...f, maxAttempts: e.target.value })} /></Field>
+            <Field label="Time limit (minutes)" hint="0 means no timer. The paper opens when the student presses Start."><input type="number" min="0" max="300" value={f.timeLimit} onChange={(e) => setF({ ...f, timeLimit: e.target.value })} /></Field>
             <label className="check"><input type="checkbox" checked={f.published} onChange={(e) => setF({ ...f, published: e.target.checked })} /> Visible to students</label>
+            <label className="check"><input type="checkbox" checked={f.revealAnswers} onChange={(e) => setF({ ...f, revealAnswers: e.target.checked })} /> Show correct answers after the student finishes</label>
             <BatchPicker course={course} value={f} onChange={(v) => setF((x) => ({ ...x, ...v }))} />
           </div>
-          {f.questions.map((q, i) => (
-            <div className="q-card" key={q._id || i}>
-              <div className="row"><b className="grow">Question {i + 1}</b>
-                <button type="button" className="btn sm ghost" disabled={f.questions.length === 1} onClick={() => setF({ ...f, questions: f.questions.filter((_, n) => n !== i) })}>Remove</button></div>
-              <Field label="Question"><input type="text" value={q.text} onChange={(e) => upQ(i, { text: e.target.value })} required /></Field>
-              {q.options.map((o, oi) => (
-                <div className="opt-row" key={oi}>
-                  <input type="radio" name={`c${i}`} checked={q.correctIndex === oi} onChange={() => upQ(i, { correctIndex: oi })} aria-label={`Option ${oi + 1} is correct`} />
-                  <input type="text" value={o} placeholder={`Option ${oi + 1}`} onChange={(e) => upQ(i, { options: q.options.map((x, n) => (n === oi ? e.target.value : x)) })} aria-label={`Option ${oi + 1}`} />
-                </div>
-              ))}
-              <div className="muted small">Select the circle next to the correct answer. Leave unused options empty.</div>
+          {!item && weekly && (
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+              <label className="btn" style={{ cursor: 'pointer' }}>Import paper from a JSON file<input type="file" accept=".json,application/json" hidden onChange={importFile} /></label>
+              <span className="muted small">Fills the sections and questions below from a file, so you do not type them one by one.</span>
             </div>
-          ))}
-          <div><button type="button" className="btn" onClick={() => setF({ ...f, questions: [...f.questions, blankQ()] })}>Add question</button></div>
+          )}
+          {f.rows.map((r, i) => {
+            if (r.row === 'section') {
+              return (
+                <div className="sec-head" key={r.uid}>
+                  <input type="text" value={r.title} placeholder="Section title, e.g. Section A: Multiple Choice Questions" onChange={(e) => upRow(i, { title: e.target.value })} aria-label="Section title" />
+                  <button type="button" className="btn sm ghost" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">Up</button>
+                  <button type="button" className="btn sm ghost" onClick={() => move(i, 1)} disabled={i === f.rows.length - 1} aria-label="Move down">Down</button>
+                  <button type="button" className="btn sm ghost" onClick={() => removeRow(i)}>Remove section</button>
+                </div>
+              );
+            }
+            n += 1;
+            const written = r.type === 'short' || r.type === 'code';
+            return (
+              <div className="q-card" key={r.uid}>
+                <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                  <b className="grow">Question {n}</b>
+                  <select value={r.type} onChange={(e) => { const type = e.target.value; upRow(i, { type, options: type === 'mcq' ? (r.options.length ? r.options : ['', '', '', '']) : [], correctIndex: 0 }); }} aria-label="Question type">
+                    <option value="mcq">Multiple choice</option>
+                    <option value="tf">True / False</option>
+                    {weekly && <option value="short">Short answer</option>}
+                    {weekly && <option value="code">Coding / practical</option>}
+                  </select>
+                  <label className="small" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>Marks <input type="number" min="1" max="100" value={r.points} onChange={(e) => upRow(i, { points: e.target.value })} style={{ width: 70 }} /></label>
+                  <button type="button" className="btn sm ghost" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">Up</button>
+                  <button type="button" className="btn sm ghost" onClick={() => move(i, 1)} disabled={i === f.rows.length - 1} aria-label="Move down">Down</button>
+                  <button type="button" className="btn sm ghost" disabled={qRows.length === 1} onClick={() => removeRow(i)}>Remove</button>
+                </div>
+                <Field label="Question"><textarea rows={written ? 3 : 2} value={r.text} onChange={(e) => upRow(i, { text: e.target.value })} required /></Field>
+                {r.showCode
+                  ? <Field label="Code shown with the question"><textarea className="mono" rows={5} spellCheck={false} value={r.code} onChange={(e) => upRow(i, { code: e.target.value })} /></Field>
+                  : <div><button type="button" className="btn sm ghost" onClick={() => upRow(i, { showCode: true })}>Add a code snippet to this question</button></div>}
+                {r.type === 'mcq' && r.options.map((o, oi) => (
+                  <div className="opt-row" key={oi}>
+                    <input type="radio" name={`c${r.uid}`} checked={r.correctIndex === oi} onChange={() => upRow(i, { correctIndex: oi })} aria-label={`Option ${oi + 1} is correct`} />
+                    <input type="text" value={o} placeholder={`Option ${oi + 1}`} onChange={(e) => upRow(i, { options: r.options.map((x, k) => (k === oi ? e.target.value : x)) })} aria-label={`Option ${oi + 1}`} />
+                  </div>
+                ))}
+                {r.type === 'mcq' && <div className="muted small">Select the circle next to the correct answer. Leave unused options empty.</div>}
+                {r.type === 'tf' && (
+                  <div className="row" style={{ gap: 16 }}>
+                    <label className="check"><input type="radio" name={`c${r.uid}`} checked={r.correctIndex === 0} onChange={() => upRow(i, { correctIndex: 0 })} /> True is correct</label>
+                    <label className="check"><input type="radio" name={`c${r.uid}`} checked={r.correctIndex === 1} onChange={() => upRow(i, { correctIndex: 1 })} /> False is correct</label>
+                  </div>
+                )}
+                {written && <Field label="Model answer (only you see this, it helps while marking)"><textarea rows={3} value={r.modelAnswer} onChange={(e) => upRow(i, { modelAnswer: e.target.value })} /></Field>}
+              </div>
+            );
+          })}
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            {weekly && <button type="button" className="btn" onClick={() => addRow(blankSection())}>Add section</button>}
+            <button type="button" className="btn" onClick={() => addRow(blankQ('mcq'))}>Add multiple choice</button>
+            <button type="button" className="btn" onClick={() => addRow(blankQ('tf'))}>Add true / false</button>
+            {weekly && <button type="button" className="btn" onClick={() => addRow(blankQ('short'))}>Add short answer</button>}
+            {weekly && <button type="button" className="btn" onClick={() => addRow(blankQ('code'))}>Add coding question</button>}
+          </div>
         </form>
       )}
     </Modal>
   );
 }
 
-function Attempts({ quiz, onClose }) {
+// Teacher marks one attempt: choice questions are already marked, written ones get marks and feedback here.
+function MarkAttempt({ attemptId, onClose, onSaved }) {
+  const toast = useToast();
+  const state = useAsync(() => api.get(`/lms/attempts/${attemptId}`), [attemptId]);
+  const [edit, setEdit] = useState(null);
+  const [comment, setComment] = useState('');
+  const [busy, setBusy] = useState(false);
+  const d = state.data;
+
+  useEffect(() => {
+    if (!d || edit) return;
+    const m = {};
+    d.attempt.responses.forEach((r) => { m[String(r.question)] = { marks: typeof r.marks === 'number' ? String(r.marks) : '', feedback: r.feedback || '' }; });
+    setEdit(m);
+    setComment(d.attempt.comment || '');
+  }, [d, edit]);
+
+  const resp = new Map((d?.attempt.responses || []).map((r) => [String(r.question), r]));
+  const manualQs = (d?.quiz.questions || []).filter((q) => !isAutoQ(q));
+  const manualTotal = manualQs.reduce((s, q) => s + (Number(edit?.[String(q._id)]?.marks) || 0), 0);
+  const total = (d?.attempt.autoScore || 0) + manualTotal;
+  const setM = (qid, patch) => setEdit((x) => ({ ...x, [qid]: { ...x[qid], ...patch } }));
+
+  async function save() {
+    setBusy(true);
+    try {
+      const marks = manualQs.map((q) => ({ question: q._id, marks: edit[String(q._id)]?.marks ?? '', feedback: edit[String(q._id)]?.feedback || '' }));
+      await api.patch(`/lms/attempts/${attemptId}/grade`, { marks, comment });
+      toast('Marks saved');
+      onSaved();
+    } catch (e) { toast(e.message, 'bad'); setBusy(false); }
+  }
+
+  return (
+    <Modal wide title={d ? `${d.attempt.student?.name || 'Student'}: ${d.quiz.title}` : 'Mark quiz'} onClose={onClose}
+      footer={<><span className="muted small grow">Total {total} / {d?.attempt.maxScore}</span><button className="btn" onClick={onClose}>Close</button>{manualQs.length > 0 && <button className="btn primary" onClick={save} disabled={busy || !edit}>{busy ? 'Saving...' : 'Save marks'}</button>}</>}>
+      <Loading state={state}>
+        {d && edit && (
+          <div className="stack">
+            <div className="muted small">Handed in {new Date(d.attempt.submittedAt).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', dateStyle: 'medium', timeStyle: 'short' })}. Multiple-choice and true/false part: {d.attempt.autoScore ?? d.attempt.score} marks (automatic).</div>
+            {d.attempt.comment === 'Not handed in before the time ended.' && <div className="alert warn">This student did not hand in before the time ended.</div>}
+            {groupSections(d.quiz.questions).map((g, gi) => (
+              <div className="stack" key={gi}>
+                <SectionHead g={g} />
+                {g.items.map(({ q, n }) => {
+                  const r = resp.get(String(q._id)) || {};
+                  const id = String(q._id);
+                  if (isAutoQ(q)) {
+                    return (
+                      <div className="q-card" key={id}>
+                        <div className="row"><b className="grow">{n}. {q.text}</b><span className={`chip ${r.marks > 0 ? 'ok' : 'bad'}`}>{r.marks ?? 0}/{q.points}</span></div>
+                        <CodeBlock code={q.code} />
+                        <div className="small">Chosen: <b>{r.choice != null ? q.options[r.choice] : 'No answer'}</b> · Correct: <b>{q.options[q.correctIndex]}</b></div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="q-card" key={id}>
+                      <b>{n}. {q.text} <span className="muted small">({marksLabel(q.points)})</span></b>
+                      <CodeBlock code={q.code} />
+                      <div className="muted small">Student's answer</div>
+                      <pre className={`sub-text ${q.type === 'code' ? 'mono' : ''}`} style={{ margin: 0, fontFamily: q.type === 'code' ? undefined : 'inherit' }}>{r.text?.trim() ? r.text : 'No answer'}</pre>
+                      {q.modelAnswer && <div className="model-ans"><b>Model answer:</b> {q.modelAnswer}</div>}
+                      <div className="mark-box">
+                        <Field label={`Marks (of ${q.points})`}><input type="number" min="0" max={q.points} step="0.5" value={edit[id]?.marks ?? ''} onChange={(e) => setM(id, { marks: e.target.value })} /></Field>
+                        <Field label="Feedback (optional)"><input type="text" value={edit[id]?.feedback ?? ''} onChange={(e) => setM(id, { feedback: e.target.value })} maxLength={1000} /></Field>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            <Field label="Comment for the student (optional)"><textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} maxLength={2000} /></Field>
+          </div>
+        )}
+      </Loading>
+    </Modal>
+  );
+}
+
+function Attempts({ quiz, onClose, onChanged }) {
   const state = useAsync(() => api.get(`/lms/quizzes/${quiz._id}/attempts`), [quiz._id]);
+  const [marking, setMarking] = useState(null);
   return (
     <Modal title={`Results: ${quiz.title}`} onClose={onClose} footer={<button className="btn" onClick={onClose}>Close</button>}>
       <Loading state={state}>
         {state.data && (state.data.items.length === 0 ? <Empty title="No attempts yet" /> : (
           <div>{state.data.items.map((a) => (
-            <div className="list-row" key={a._id}><div className="grow"><b>{a.student?.name}</b><div className="muted small">{new Date(a.submittedAt).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', dateStyle: 'medium', timeStyle: 'short' })}</div></div><span className="tag num">{a.score}/{a.maxScore}</span></div>
+            <div className="list-row" key={a._id}>
+              <div className="grow"><b>{a.student?.name}</b><div className="muted small">{new Date(a.submittedAt).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', dateStyle: 'medium', timeStyle: 'short' })}</div></div>
+              {a.status === 'pending' ? <span className="chip warn">Needs marking</span> : null}
+              <span className="tag num">{a.score}/{a.maxScore}</span>
+              {quiz.kind === 'weekly' || a.status === 'pending' ? <button className={`btn sm ${a.status === 'pending' ? 'primary' : ''}`} onClick={() => setMarking(a._id)}>{a.status === 'pending' ? 'Mark' : 'Review'}</button> : null}
+            </div>
           ))}</div>
         ))}
       </Loading>
+      {marking && <MarkAttempt attemptId={marking} onClose={() => setMarking(null)} onSaved={() => { setMarking(null); state.reload(); onChanged?.(); }} />}
     </Modal>
   );
 }
@@ -615,11 +831,11 @@ function Quizzes({ course }) {
     <>
       <div className="row" style={{ marginBottom: 12 }}><div className="grow" /><button className="btn primary" onClick={() => setEditing('new')}>New quiz</button></div>
       <Loading state={state}>
-        {state.data && (state.data.items.length === 0 ? <div className="panel"><Empty title="No quizzes">Multiple-choice quizzes are marked automatically.</Empty></div> : (
+        {state.data && (state.data.items.length === 0 ? <div className="panel"><Empty title="No quizzes">Create a daily quiz (marked automatically) or a weekly grand quiz with written and coding questions.</Empty></div> : (
           <div className="panel">{state.data.items.map((q) => (
             <div className="list-row" key={q._id}>
-              <div className="grow"><div className="title" style={{ fontWeight: 600 }}>{q.title} {!q.published && <span className="chip muted">Hidden</span>}</div>
-                <div className="muted small">{q.questionCount} questions · {q.totalPoints} marks · {q.attempts} attempts · <b>{forLabel(q)}</b></div></div>
+              <div className="grow"><div className="title" style={{ fontWeight: 600 }}>{q.title} <span className={`chip ${q.kind === 'weekly' ? 'info' : 'muted'}`}>{q.kind === 'weekly' ? 'Weekly grand' : 'Daily'}</span> {!q.published && <span className="chip muted">Hidden</span>} {q.toMark > 0 && <span className="chip warn">{q.toMark} to mark</span>}</div>
+                <div className="muted small">{q.questionCount} questions · {q.totalPoints} marks{q.timeLimit ? ` · ${q.timeLimit} min` : ''} · {q.attempts} attempts · <b>{forLabel(q)}</b></div></div>
               <div className="row" style={{ gap: 6 }}>
                 <button className="btn sm" onClick={() => setViewing(q)}>Results</button>
                 <button className="btn sm" onClick={() => setEditing(q)}>Edit</button>
@@ -630,7 +846,7 @@ function Quizzes({ course }) {
         ))}
       </Loading>
       {editing && <QuizForm course={course} item={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); state.reload(); }} />}
-      {viewing && <Attempts quiz={viewing} onClose={() => setViewing(null)} />}
+      {viewing && <Attempts quiz={viewing} onClose={() => setViewing(null)} onChanged={() => state.reload()} />}
     </>
   );
 }

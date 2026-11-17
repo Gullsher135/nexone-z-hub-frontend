@@ -42,6 +42,23 @@ export const DAY_NAMES = DAYS;
 export const FULL_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// Student classes run on Saturday and Sunday only (keep in step with CLASS_DAYS on the server).
+export const CLASS_DAYS_TEXT = 'Saturday and Sunday';
+const weekdayOf = (key) => new Date(`${key}T12:00:00Z`).getUTCDay();
+export const isClassDay = (key) => [6, 0].includes(weekdayOf(key));
+const shiftDay = (key, n) => { const d = new Date(`${key}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+// Nearest class day before (dir = -1) or after (dir = 1) the given date.
+export function stepClassDay(key, dir) {
+  let k = shiftDay(key, dir);
+  for (let i = 0; i < 7 && !isClassDay(k); i += 1) k = shiftDay(k, dir);
+  return k;
+}
+export function lastClassDay(from = todayKey()) {
+  let k = from;
+  for (let i = 0; i < 7 && !isClassDay(k); i += 1) k = shiftDay(k, -1);
+  return k;
+}
+
 export function fmtDate(key, withYear = false) {
   if (!key) return '';
   const [y, m, d] = key.split('-').map(Number);

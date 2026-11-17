@@ -3,14 +3,14 @@ import { api, qs } from '../../lib/api.js';
 import { useAsync } from '../../lib/useAsync.js';
 import { useToast } from '../../lib/toast.jsx';
 import { Empty, Loading, Spinner, Tabs } from '../../components.jsx';
-import { fmtDate, fmtMonth, thisMonth, todayKey } from '../../lib/format.js';
+import { CLASS_DAYS_TEXT, fmtDate, fmtMonth, isClassDay, lastClassDay, stepClassDay, thisMonth, todayKey } from '../../lib/format.js';
 
 const OPTIONS = [['present', 'Present'], ['late', 'Late'], ['absent', 'Absent'], ['leave', 'Leave']];
 
 function Sheet({ batches }) {
   const toast = useToast();
   const [batch, setBatch] = useState(batches[0]?._id || '');
-  const [date, setDate] = useState(todayKey());
+  const [date, setDate] = useState(lastClassDay()); // latest Saturday or Sunday
   const [marks, setMarks] = useState({});
   const [saving, setSaving] = useState(false);
   const sheet = useAsync(() => (batch ? api.get(`/student-attendance${qs({ batch, date })}`) : Promise.resolve({ rows: [] })), [batch, date]);
@@ -45,7 +45,10 @@ function Sheet({ batches }) {
         <select value={batch} onChange={(e) => setBatch(e.target.value)} aria-label="Batch">
           {batches.map((b) => <option key={b._id} value={b._id}>{b.name}{b.course ? ` · ${b.course}` : ''}</option>)}
         </select>
-        <input type="date" value={date} max={todayKey()} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Class date" />
+        <button className="btn" onClick={() => setDate(stepClassDay(date, -1))} aria-label="Previous class day">Previous class day</button>
+        <input type="date" value={date} max={todayKey()} aria-label="Class date"
+          onChange={(e) => { const v = e.target.value; if (!v) return; if (!isClassDay(v)) return toast(`Classes are held on ${CLASS_DAYS_TEXT} only`, 'bad'); setDate(v); }} />
+        <button className="btn" onClick={() => setDate(stepClassDay(date, 1))} disabled={stepClassDay(date, 1) > todayKey()} aria-label="Next class day">Next class day</button>
         <button className="btn" onClick={() => setAll('present')} disabled={!rows.length}>Mark everyone present</button>
       </div>
 
@@ -57,7 +60,7 @@ function Sheet({ batches }) {
             <div className="panel-head">
               <div>
                 <h2>{fmtDate(date, true)}</h2>
-                <p className="muted small">{sheet.data.marked ? 'Attendance was already taken. Changes replace it.' : 'Not taken yet.'}</p>
+                <p className="muted small">{!isClassDay(date) ? `This is not a class day (classes are on ${CLASS_DAYS_TEXT}). You can look at it but not save.` : sheet.data.marked ? 'Attendance was already taken. Changes replace it.' : 'Not taken yet.'}</p>
               </div>
               <div className="stat-line small">{counts.map(([l, n]) => <span key={l}><b>{n}</b> {l.toLowerCase()}</span>)}</div>
             </div>
@@ -84,7 +87,7 @@ function Sheet({ batches }) {
             </div>
             <div className="modal-foot" style={{ borderRadius: '0 0 14px 14px' }}>
               {unmarked > 0 && <span className="muted small" style={{ marginRight: 'auto' }}>{unmarked} not marked</span>}
-              <button className="btn primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save attendance'}</button>
+              <button className="btn primary" onClick={save} disabled={saving || !isClassDay(date)}>{saving ? 'Saving...' : 'Save attendance'}</button>
             </div>
           </>
         )}
