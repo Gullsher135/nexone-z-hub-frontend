@@ -11,6 +11,8 @@ self.addEventListener('push', (event) => {
       icon: '/hub-icon-512.png',
       badge: '/hub-icon.png',
       tag: d.tag || undefined,
+      renotify: !!d.tag,
+      vibrate: [200, 100, 200],
       data: { url: d.url || '/' },
     })
   );

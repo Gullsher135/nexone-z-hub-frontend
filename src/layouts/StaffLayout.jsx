@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
 import { Icon } from '../components.jsx';
 import { ProductOf, TimeBrand } from '../brand.jsx';
+import PushPrompt from '../PushPrompt.jsx';
 
 const baseTabs = [
   { to: '/time', label: 'Today', icon: Icon.clock, end: true },
@@ -27,6 +28,7 @@ export default function StaffLayout() {
         </div>
       </header>
       <main className="staff-main">
+        <PushPrompt />
         <Outlet />
       </main>
       <footer className="staff-foot">
