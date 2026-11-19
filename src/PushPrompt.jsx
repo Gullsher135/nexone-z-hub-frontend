@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './lib/auth.jsx';
+import { api } from './lib/api.js';
 import { useToast } from './lib/toast.jsx';
 import { disablePush, enablePush, isIos, isStandalone, pushState, pushSupported, syncPush } from './lib/push.js';
 
@@ -29,6 +30,16 @@ export default function PushPrompt() {
     localStorage.removeItem(DISMISS_KEY);
     setBusy(false);
   }
+  async function sendTest() {
+    setBusy(true);
+    try {
+      await syncPush();
+      const r = await api.post('/push/test', {});
+      if (!r.devices) toast('Server has no device saved for this login. Turn notifications off and on again.', 'bad');
+      else if (r.errors?.length) toast(`Push failed: ${r.errors[0]}`, 'bad');
+      else toast('Test sent. Close the website and check your phone.');
+    } catch (e) { toast(e.message, 'bad'); } finally { setBusy(false); }
+  }
   const hide = () => { localStorage.setItem(DISMISS_KEY, '1'); setDismissed(true); };
 
   // iPhone/iPad only allow notifications for apps added to the Home Screen.
@@ -50,7 +61,7 @@ export default function PushPrompt() {
     );
   }
   if (state === 'on') {
-    return <div className="muted small" style={{ marginBottom: 10, textAlign: 'right' }}>Notifications are on for this device. <button className="link-btn small" onClick={turnOff} disabled={busy}>Turn off</button></div>;
+    return <div className="muted small" style={{ marginBottom: 10, textAlign: 'right' }}>Notifications are on for this device. <button className="link-btn small" onClick={sendTest} disabled={busy}>Send test</button> · <button className="link-btn small" onClick={turnOff} disabled={busy}>Turn off</button></div>;
   }
   return null;
 }
