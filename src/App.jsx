@@ -27,6 +27,7 @@ import ProjectBoard from './pages/flow/Board.jsx';
 import Clients from './pages/flow/Clients.jsx';
 import MyWork from './pages/flow/MyWork.jsx';
 import PayLayout from './layouts/PayLayout.jsx';
+import AuditLog from './pages/admin/AuditLog.jsx';
 import PayHome from './pages/pay/PayHome.jsx';
 import Fees from './pages/pay/Fees.jsx';
 import Payroll from './pages/pay/Payroll.jsx';
@@ -101,6 +102,7 @@ export default function App() {
           <Route path="course/:id" element={<CoursePlayer />} />
           <Route path="certificates" element={<Certificates />} />
           <Route path="fees" element={<MyFees />} />
+          <Route path="notices" element={<Notices />} />
           <Route path="account" element={<Account />} />
         </Route>
       </Route>
@@ -109,6 +111,7 @@ export default function App() {
         <Route path="/teach" element={<LearnAdminLayout teach />}>
           <Route index element={<LearnAdminHome teach />} />
           <Route path="attendance" element={<ClassAttendance teach />} />
+          <Route path="notices" element={<Notices />} />
           <Route path="account" element={<Account />} />
           <Route path=":id" element={<CourseManage teach />} />
         </Route>
@@ -173,6 +176,7 @@ export default function App() {
           <Route path="leaves" element={<AdminLeaves />} />
           <Route path="reports" element={<Reports />} />
           <Route path="qr" element={<Qr />} />
+          <Route path="audit" element={<AuditLog />} />
           <Route path="settings" element={<Settings />} />
           <Route path="account" element={<Account />} />
         </Route>

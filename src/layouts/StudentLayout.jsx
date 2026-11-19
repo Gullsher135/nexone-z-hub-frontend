@@ -6,6 +6,7 @@ const items = [
   { to: '/learn/courses', label: 'My courses', icon: Icon.book },
   { to: '/learn/certificates', label: 'Certificates', icon: Icon.check },
   { to: '/learn/fees', label: 'My fees', icon: Icon.leave },
+  { to: '/learn/notices', label: 'Notices', icon: Icon.bell },
 ];
 
 export default function StudentLayout() {

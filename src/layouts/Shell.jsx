@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
 import { Icon } from '../components.jsx';
 import { ModuleSwitch, ProductOf, moduleOf } from '../brand.jsx';
+import PushPrompt from '../PushPrompt.jsx';
 
 // One responsive shell for every module: sidebar on desktop, drawer on phones.
 // `links` are the live modules this person can open; `items` is the module's own menu.
@@ -60,6 +61,7 @@ export default function Shell({ module, items, links, accountPath, rootPath, hid
         </div>
       </aside>
       <main className="main" key={rootPath}>
+        <PushPrompt />
         <Outlet />
       </main>
     </div>

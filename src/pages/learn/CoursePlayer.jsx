@@ -7,6 +7,7 @@ import { fmtDate, todayKey } from '../../lib/format.js';
 import { Cover, Empty, Field, Loading, Modal, ProgressBar, Tabs, LEVEL_LABEL } from '../../components.jsx';
 import ProgressDetail from './ProgressDetail.jsx';
 import { FileList, FilePicker } from '../../lib/files.jsx';
+import { StudentPresentations } from './Presentations.jsx';
 import { CodeBlock, SectionHead, groupSections, isAutoQ, marksLabel } from './quizParts.jsx';
 
 function embedUrl(url) {
@@ -432,10 +433,11 @@ export default function CoursePlayer() {
                 </div>
               </div>
             </div>
-            <Tabs tabs={[{ value: 'lessons', label: 'Lessons' }, { value: 'assignments', label: 'Assignments' }, { value: 'quizzes', label: 'Quizzes' }, { value: 'progress', label: 'My progress' }, { value: 'updates', label: 'Updates' }]} value={tab} onChange={setTab} />
+            <Tabs tabs={[{ value: 'lessons', label: 'Lessons' }, { value: 'assignments', label: 'Assignments' }, { value: 'quizzes', label: 'Quizzes' }, { value: 'presentations', label: 'Presentations' }, { value: 'progress', label: 'My progress' }, { value: 'updates', label: 'Updates' }]} value={tab} onChange={setTab} />
             {tab === 'lessons' && <Lessons data={d} course={c} reload={state.reload} />}
             {tab === 'assignments' && <Assignments course={c} />}
             {tab === 'quizzes' && <Quizzes course={c} refresh={state.reload} />}
+            {tab === 'presentations' && <StudentPresentations course={c} />}
             {tab === 'progress' && <MyProgress course={c} />}
             {tab === 'updates' && <Updates course={c} />}
           </>

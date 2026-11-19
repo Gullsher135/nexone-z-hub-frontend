@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, getToken, setToken } from './api.js';
+import { forgetPushOnServer } from './push.js';
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -9,6 +10,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(!!getToken());
 
   const logout = useCallback(() => {
+    forgetPushOnServer(); // must run while the token still exists
     setToken(null);
     setUser(null);
   }, []);

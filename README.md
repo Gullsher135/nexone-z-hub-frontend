@@ -1,10 +1,13 @@
 # NexoneZ Attendance System: Frontend
 
-React (Vite) web app for the NexoneZ attendance system. It works on phones and desktops.
+React (Vite) web app for the NexoneZ Hub. It works on phones and desktops.
 
-- **Employees and interns**: log in, check in/out, see their month, request leave.
-- **Admin**: dashboard, daily attendance board, people (employees, interns, students, admins), batches,
-  class attendance for students, leave approval, reports with CSV export, office QR screen and settings.
+- **Employees and interns**: log in, check in/out, see their month, request leave, tasks, notices and payslips.
+- **Students**: courses, lessons, assignments (upload files or links), daily and weekly quizzes, presentations
+  (own topic, slides, marks), class attendance, progress and fees.
+- **Teachers**: courses, batches, class attendance (Saturday and Sunday), quizzes, assignments, presentations and marking.
+- **Admin**: dashboard, attendance board, people, batches, leave approval, reports, fees and payroll,
+  projects, letters, office QR, settings and the **audit log**.
 
 ## Run locally
 
@@ -24,6 +27,12 @@ npm run dev              # http://localhost:5173
 5. Copy the Vercel URL into the backend's `CLIENT_URL` setting on Render (otherwise the browser blocks requests).
 
 If you change `VITE_API_URL` later, redeploy the frontend so the new value is built in.
+
+## Tests
+
+```bash
+npm test      # fee schedule maths (advance + monthly installments), no browser needed
+```
 
 ## Using the QR check-in
 

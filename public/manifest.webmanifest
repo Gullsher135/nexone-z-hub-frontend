@@ -1,0 +1,12 @@
+{
+  "name": "NexoneZ Hub",
+  "short_name": "NexoneZ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2f22c8",
+  "icons": [
+    { "src": "/hub-icon.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "/hub-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

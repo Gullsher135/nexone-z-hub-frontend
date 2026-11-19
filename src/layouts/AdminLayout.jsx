@@ -12,6 +12,7 @@ const items = [
   { to: '/admin/leaves', label: 'Leave requests', icon: Icon.leave },
   { to: '/admin/reports', label: 'Reports', icon: Icon.chart },
   { to: '/admin/qr', label: 'Office QR', icon: Icon.qr },
+  { to: '/admin/audit', label: 'Audit log', icon: Icon.check },
   { to: '/admin/settings', label: 'Settings', icon: Icon.gear },
 ];
 

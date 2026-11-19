@@ -42,7 +42,7 @@ function PersonForm({ role, person, batches, onClose, onSaved }) {
     internStart: p?.internship?.startDate || todayKey(), internEnd: p?.internship?.endDate || '', mentor: p?.internship?.mentor || '',
     batch: p?.batch?._id || p?.batch || '', rollNo: p?.rollNo || '', admissionDate: p?.admissionDate || todayKey(),
     guardianName: p?.guardianName || '', guardianPhone: p?.guardianPhone || '',
-    password: '', createLogin: false,
+    password: '',
   });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -63,7 +63,7 @@ function PersonForm({ role, person, batches, onClose, onSaved }) {
     }
     if (role === 'intern') body.internship = { startDate: f.internStart, endDate: f.internEnd || undefined, mentor: f.mentor };
     if (role === 'student') {
-      if (!p && f.createLogin) { body.createLogin = true; if (f.password) body.password = f.password; }
+      if (!p && f.password) body.password = f.password;
       Object.assign(body, { batch: f.batch || undefined, rollNo: f.rollNo, admissionDate: f.admissionDate, guardianName: f.guardianName, guardianPhone: f.guardianPhone });
     }
     try {
@@ -97,7 +97,7 @@ function PersonForm({ role, person, batches, onClose, onSaved }) {
         {error && <div className="alert bad" role="alert">{error}</div>}
         <div className="form-grid">
           <Field label="Full name"><input type="text" value={f.name} onChange={set('name')} required /></Field>
-          <Field label={staff ? 'Email (used to log in)' : 'Email (needed for a learning login)'}><input type="email" value={f.email} onChange={set('email')} required={staff} /></Field>
+          <Field label="Login email" hint={p ? undefined : 'Leave empty to create it automatically from the ID, like nz-std-0008@nexonez.com.'}><input type="email" value={f.email} onChange={set('email')} placeholder={p ? '' : 'Automatic'} /></Field>
           <Field label="Phone"><input type="tel" value={f.phone} onChange={set('phone')} /></Field>
           <Field label="CNIC (optional)"><input type="text" value={f.cnic} onChange={set('cnic')} placeholder="00000-0000000-0" /></Field>
 
@@ -106,7 +106,7 @@ function PersonForm({ role, person, batches, onClose, onSaved }) {
               <Field label="Designation"><input type="text" value={f.designation} onChange={set('designation')} placeholder={role === 'intern' ? 'Web development intern' : 'Full-stack developer'} /></Field>
               <Field label="Department"><input type="text" value={f.department} onChange={set('department')} /></Field>
               <Field label="Joining date"><input type="date" value={f.joiningDate} onChange={set('joiningDate')} /></Field>
-              {!p && <Field label="Password" hint="Leave empty to generate a temporary one."><input type="text" value={f.password} onChange={set('password')} minLength={8} autoComplete="off" /></Field>}
+              {!p && <Field label="Password" hint="Leave empty to use the default password (nz123). They must change it on first login."><input type="text" value={f.password} onChange={set('password')} minLength={8} autoComplete="off" /></Field>}
               <Field label="Shift starts"><input type="time" value={f.shiftStart} onChange={set('shiftStart')} /></Field>
               <Field label="Shift ends"><input type="time" value={f.shiftEnd} onChange={set('shiftEnd')} /></Field>
               <Field label="On-time window (minutes)" hint="Arrival within this many minutes of shift start is not late."><input type="number" min="0" max="120" value={f.grace} onChange={set('grace')} /></Field>
@@ -131,14 +131,11 @@ function PersonForm({ role, person, batches, onClose, onSaved }) {
               </Field>
               <Field label="Roll number"><input type="text" value={f.rollNo} onChange={set('rollNo')} /></Field>
               <Field label="Admission date"><input type="date" value={f.admissionDate} onChange={set('admissionDate')} /></Field>
-              {!p && (
-                <label className="check full"><input type="checkbox" checked={f.createLogin} onChange={(e) => setF((x) => ({ ...x, createLogin: e.target.checked }))} /> Give this student a login for NexoneZ Learn (needs email)</label>
-              )}
               {p && (
                 <Field label="Login password" hint={f.email ? 'Optional. Type a password (8+ characters) to give this student a login or change it. Leave empty to keep as is.' : 'Add the email above first, then you can set a password.'} full><input type="text" value={f.password} onChange={set('password')} minLength={8} autoComplete="off" disabled={!f.email} /></Field>
               )}
-              {!p && f.createLogin && (
-                <Field label="Password" hint="Leave empty to generate a temporary one." full><input type="text" value={f.password} onChange={set('password')} minLength={8} autoComplete="off" /></Field>
+              {!p && (
+                <Field label="Password" hint="Leave empty to use the default password (nz123). They must change it on first login." full><input type="text" value={f.password} onChange={set('password')} minLength={8} autoComplete="off" /></Field>
               )}
               <Field label="Parent or guardian"><input type="text" value={f.guardianName} onChange={set('guardianName')} /></Field>
               <Field label="Guardian phone"><input type="tel" value={f.guardianPhone} onChange={set('guardianPhone')} /></Field>
@@ -213,7 +210,7 @@ function ImportModal({ batches, onClose, onDone }) {
       )}>
       {result ? (
         <div className="stack">
-          <div className="alert ok">{result.created} students added.</div>
+          <div className="alert ok">{result.created} students added. Each one got a login: their ID as email (like nz-std-0008@nexonez.com) and the default password nz123. Their IDs are shown in the list.</div>
           {result.errors.length > 0 && (
             <div className="alert warn">
               {result.errors.length} rows were skipped:

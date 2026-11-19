@@ -8,6 +8,8 @@ import { fmtDate } from '../../lib/format.js';
 import { Cover, Empty, Field, Loading, Modal, ProgressBar, Tabs, LEVEL_LABEL } from '../../components.jsx';
 import ProgressDetail, { PART_LABEL, PART_SHORT } from './ProgressDetail.jsx';
 import { FileList, FilePicker } from '../../lib/files.jsx';
+import { BatchPicker, batchState, batchPayload, forLabel } from './batchPicker.jsx';
+import { ManagePresentations } from './Presentations.jsx';
 import { CodeBlock, SectionHead, groupSections, isAutoQ, marksLabel } from './quizParts.jsx';
 
 const TABS = [
@@ -16,6 +18,7 @@ const TABS = [
   { value: 'students', label: 'Students' },
   { value: 'assignments', label: 'Assignments' },
   { value: 'quizzes', label: 'Quizzes' },
+  { value: 'presentations', label: 'Presentations' },
   { value: 'updates', label: 'Updates' },
   { value: 'details', label: 'Details' },
 ];
@@ -370,34 +373,6 @@ function Students({ course }) {
       {adding && <EnrollModal course={course} onClose={() => setAdding(false)} onDone={() => { setAdding(false); state.reload(); }} />}
       {viewing && <StudentProgress course={course} enrollment={viewing} onClose={() => setViewing(null)} />}
     </>
-  );
-}
-
-// ---------- Batch picker (assignments and quizzes) ----------
-// mode 'all' = every batch of the course; 'some' = only the ticked batches.
-const batchState = (item) => ({ batchMode: item?.batches?.length ? 'some' : 'all', batches: (item?.batches || []).map(String) });
-const batchPayload = (f) => (f.batchMode === 'some' ? f.batches : []);
-const forLabel = (item) => (item.batches?.length ? (item.batchNames?.join(', ') || 'Removed batch') : 'All batches');
-
-function BatchPicker({ course, value, onChange }) {
-  const state = useAsync(() => api.get(`/lms/courses/${course._id}/batches`), [course._id]);
-  const list = state.data?.items || [];
-  const toggle = (id) => onChange({ ...value, batches: value.batches.includes(id) ? value.batches.filter((x) => x !== id) : [...value.batches, id] });
-  if (state.data && list.length === 0) return <div className="muted small full">This course has no batches yet, so this goes to everyone enrolled. Create batches in the Batches tab to send work to one batch only.</div>;
-  return (
-    <div className="stack full" style={{ gap: 6 }}>
-      <b className="small">Who gets this?</b>
-      <label className="check"><input type="radio" name="batch-mode" checked={value.batchMode === 'all'} onChange={() => onChange({ ...value, batchMode: 'all' })} /> All batches of this course</label>
-      <label className="check"><input type="radio" name="batch-mode" checked={value.batchMode === 'some'} onChange={() => onChange({ ...value, batchMode: 'some' })} /> Only selected batches</label>
-      {value.batchMode === 'some' && (
-        <div className="stack" style={{ gap: 4, paddingLeft: 24 }}>
-          {state.loading && <span className="muted small">Loading batches...</span>}
-          {list.map((b) => (
-            <label className="check" key={b._id}><input type="checkbox" checked={value.batches.includes(String(b._id))} onChange={() => toggle(String(b._id))} /> {b.name}{b.isActive === false ? ' (finished)' : ''}<span className="muted small"> {b.enrolled} enrolled</span></label>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -985,6 +960,7 @@ export default function CourseManage({ teach = false }) {
             {tab === 'students' && <Students course={c} />}
             {tab === 'assignments' && <Assignments course={c} />}
             {tab === 'quizzes' && <Quizzes course={c} />}
+            {tab === 'presentations' && <ManagePresentations course={c} />}
             {tab === 'updates' && <Updates course={c} />}
             {tab === 'details' && <Details course={c} reload={state.reload} base={base} />}
           </>

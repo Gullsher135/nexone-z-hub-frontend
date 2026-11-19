@@ -2,18 +2,13 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { useAsync } from '../../lib/useAsync.js';
+import { addMonths, buildSchedule } from '../../lib/installments.js';
 import { useToast } from '../../lib/toast.jsx';
 import { Empty, Field, Loading, Modal, ProgressBar } from '../../components.jsx';
 import { fmtDate, METHOD_LABEL, rs, todayKey } from '../../lib/format.js';
 
 const TONE = { paid: 'ok', due: 'info', overdue: 'bad' };
 const LABEL = { paid: 'Paid', due: 'Due', overdue: 'Overdue' };
-
-function addMonths(key, n) {
-  const d = new Date(`${key}T12:00:00`);
-  d.setMonth(d.getMonth() + n);
-  return d.toISOString().slice(0, 10);
-}
 
 function PlanForm({ studentId, account, paid = 0, onSaved }) {
   const toast = useToast();
@@ -33,15 +28,9 @@ function PlanForm({ studentId, account, paid = 0, onSaved }) {
 
   function generate() {
     setError('');
-    if (remaining < 0) return setError('Advance cannot be more than the total fee.');
-    const n = Math.max(1, Math.min(24, Number(gen.n) || 1));
-    const rows = [];
-    if (upfront > 0) rows.push({ label: isNew ? 'Advance' : 'Received so far', dueDate: todayKey(), amount: upfront });
-    if (remaining > 0) {
-      const each = Math.floor(remaining / n);
-      for (let i = 0; i < n; i += 1) rows.push({ label: `Installment ${i + 1}`, dueDate: addMonths(gen.start, i), amount: i === n - 1 ? remaining - each * (n - 1) : each });
-    }
-    setIns(rows);
+    const r = buildSchedule({ total, upfront, upfrontLabel: isNew ? 'Advance' : 'Received so far', months: gen.n, firstDue: gen.start, today: todayKey() });
+    if (r.error) return setError(r.error);
+    setIns(r.rows);
   }
   async function save(e) {
     e.preventDefault();
