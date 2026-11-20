@@ -76,6 +76,26 @@ export async function uploadFile(file, { course, kind }) {
   return data.file;
 }
 
+// Uploads one project document (NexoneZ Flow). Returns the saved document.
+export async function uploadProjectDoc(file, projectId, { title, category, note, item } = {}) {
+  if (file.size > MAX_UPLOAD_MB * 1024 * 1024) throw new Error(`${file.name} is larger than ${MAX_UPLOAD_MB} MB`);
+  if (file.size === 0) throw new Error(`${file.name} is empty`);
+  let res;
+  try {
+    res = await fetch(`${BASE}/flow/projects/${projectId}/documents${qs({ name: file.name, type: file.type, title, category, note, item })}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+      body: file,
+    });
+  } catch {
+    throw new Error('Cannot reach the server. Check your internet connection and try again.');
+  }
+  let data = null;
+  try { data = await res.json(); } catch { /* empty body */ }
+  if (!res.ok) throw new Error(data?.message || `Upload failed (${res.status})`);
+  return data.doc;
+}
+
 export const qs = (obj) => {
   const p = new URLSearchParams();
   Object.entries(obj).forEach(([k, v]) => {

@@ -823,3 +823,45 @@ textarea.mono, .mono textarea { font-family: ui-monospace, SFMono-Regular, Menlo
 .mark-box { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: end; }
 .model-ans { border: 1px dashed var(--line); border-radius: var(--r-s); padding: 8px 12px; background: var(--ok-t); font-size: 14px; white-space: pre-wrap; }
 @media (max-width: 640px) { .mark-box { grid-template-columns: minmax(0, 1fr); } }
+
+/* Flow: choosing project / product / SaaS, documents */
+.kind-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.kind-pick { text-align: left; background: var(--surface); border: 2px solid var(--line); border-radius: var(--r); padding: 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; font: inherit; color: inherit; }
+.kind-pick:hover, .kind-pick:focus-visible { border-color: var(--indigo); box-shadow: 0 4px 16px rgba(20,20,60,.08); outline: none; }
+.kind-pick h3 { margin: 0; font-size: 17px; }
+.kind-pick p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.kind-pick .eg { color: var(--ink-3); font-size: 12.5px; }
+.kind-help { background: var(--muted-t); border-radius: var(--r-s); padding: 10px 12px; font-size: 13px; line-height: 1.6; color: var(--ink-2); }
+.kind-def { background: var(--info-t); border-radius: var(--r-s); padding: 10px 12px; font-size: 13px; line-height: 1.55; }
+.dropzone { border: 2px dashed var(--line); border-radius: var(--r); padding: 18px; text-align: center; color: var(--ink-3); cursor: pointer; }
+.dropzone.over, .dropzone:hover { border-color: var(--indigo); color: var(--indigo); background: var(--info-t); }
+.ext-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; border-radius: 8px; background: var(--muted-t); color: var(--ink-2); font-size: 11px; font-weight: 700; flex: none; }
+.release-notes { white-space: pre-wrap; margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; }
+
+/* Notification bell */
+.bell-wrap { position: relative; display: inline-flex; }
+.bell-btn, .bell-link { position: relative; }
+.bell-badge { position: absolute; top: -2px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--bad, #d6293e); color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.icon-btn .bell-badge { top: 4px; right: 2px; }
+.bell-scrim { position: fixed; inset: 0; z-index: 90; }
+.bell-panel { position: fixed; z-index: 91; right: 12px; bottom: 12px; width: min(400px, calc(100vw - 24px)); max-height: min(72vh, 560px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: 0 12px 40px rgba(20, 20, 60, .25); overflow: hidden; }
+@media (max-width: 899px) { .bell-panel { top: 60px; bottom: auto; } }
+.bell-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line-2); }
+.bell-list { overflow-y: auto; }
+.bell-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line-2); padding: 10px 14px; cursor: pointer; font: inherit; color: inherit; }
+.bell-item:hover { background: var(--line-2); }
+.bell-item.unread { background: var(--info-t); }
+.bell-item .t { font-weight: 600; }
+.bell-item .b { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+.bell-item .w { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.bell-empty { padding: 24px; text-align: center; }
+
+/* Flow: drag and drop, search */
+.col.drop { outline: 2px dashed var(--indigo); outline-offset: -4px; background: var(--info-t); }
+.kcard[draggable="true"] { cursor: grab; }
+.fsearch { position: relative; max-width: 460px; }
+.fsearch input { width: 100%; }
+.fsearch-panel { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: 0 12px 32px rgba(20, 20, 60, .18); max-height: 60vh; overflow-y: auto; }
+.fsearch-h { padding: 8px 12px 4px; font-size: 12px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.fsearch-i { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 8px 12px; cursor: pointer; font: inherit; color: inherit; }
+.fsearch-i:hover, .fsearch-i:focus-visible { background: var(--line-2); outline: none; }

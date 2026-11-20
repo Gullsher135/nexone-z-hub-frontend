@@ -54,10 +54,32 @@ function Sharing({ project, reload }) {
       {share.enabled && url && (
         <>
           <Field label="Client link"><div className="row"><input type="text" readOnly value={url} className="grow" onFocus={(e) => e.target.select()} aria-label="Client link" /><button className="btn" onClick={() => { navigator.clipboard?.writeText(url); toast('Link copied'); }}>Copy</button></div></Field>
+          <label className="check"><input type="checkbox" checked={share.allowFeedback !== false} onChange={(e) => update({ allowFeedback: e.target.checked }, 'Saved')} /> Let the client send messages and approve finished milestones</label>
           <label className="check"><input type="checkbox" checked={!!share.showTasks} onChange={(e) => update({ showTasks: e.target.checked }, 'Saved')} /> Also show the list of cards (titles and status only)</label>
           <div><button className="btn sm ghost" onClick={() => window.confirm('Make a new link? The old link will stop working.') && update({ regenerate: true }, 'New link created')}>Create a new link</button></div>
         </>
       )}
+    </div>
+  );
+}
+
+// What the client wrote or approved on the shared page.
+function ClientFeedback({ project, reload }) {
+  const toast = useToast();
+  const list = [...(project.clientFeedback || [])].reverse();
+  const unseen = list.filter((f) => !f.seenAt).length;
+  if (!project.share?.enabled && list.length === 0) return null;
+  async function seen() { try { await api.post(`/flow/projects/${project._id}/feedback/seen`); reload(); } catch (e) { toast(e.message, 'bad'); } }
+  return (
+    <div className="panel">
+      <div className="panel-head"><h2>Client feedback {unseen > 0 && <span className="chip bad">{unseen} new</span>}</h2>{unseen > 0 && <button className="btn sm" onClick={seen}>Mark all as read</button>}</div>
+      {list.length === 0 ? <div className="panel-pad muted small">Nothing yet. When the client writes a message or approves a milestone on the shared page, it appears here and you get a notification.</div> : list.map((f) => (
+        <div className="list-row" key={f._id} style={{ alignItems: 'flex-start' }}>
+          <span className={`chip ${f.kind === 'approval' ? 'ok' : 'info'}`}>{f.kind === 'approval' ? 'Approved' : 'Message'}</span>
+          <div className="grow"><b>{f.name}</b>{f.milestoneName && <span className="muted small"> · {f.milestoneName}</span>}{f.message && <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{f.message}</div>}<div className="muted small">{when(f.at)}</div></div>
+          {!f.seenAt && <span className="chip warn">New</span>}
+        </div>
+      ))}
     </div>
   );
 }
@@ -67,6 +89,7 @@ export default function LinksShare({ project, canManage, admin, reload }) {
     <div className="stack">
       <Links project={project} canManage={canManage} reload={reload} />
       {admin && <Sharing project={project} reload={reload} />}
+      {canManage && <ClientFeedback project={project} reload={reload} />}
     </div>
   );
 }

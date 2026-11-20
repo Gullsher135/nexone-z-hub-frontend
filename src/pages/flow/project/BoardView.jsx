@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useToast } from '../../../lib/toast.jsx';
 import { api } from '../../../lib/api.js';
 import { fmtDate } from '../../../lib/format.js';
@@ -6,6 +7,15 @@ import { Avatar, COLUMNS, NEXT, NEXT_LABEL, TypeChip, hoursText, isLate } from '
 
 export default function BoardView({ items, canManage, me, onOpen, reload }) {
   const toast = useToast();
+  const [over, setOver] = useState('');
+  // drag a card onto another column (the server still checks who may move it)
+  async function drop(col, e) {
+    e.preventDefault(); setOver('');
+    const id = e.dataTransfer.getData('text/plain');
+    const item = items.find((x) => x._id === id);
+    if (!item || item.status === col.key) return;
+    try { await api.post(`/flow/items/${id}/status`, { status: col.key }); reload(); } catch (err) { toast(err.message, 'bad'); }
+  }
   async function quick(item) {
     try { await api.post(`/flow/items/${item._id}/status`, { status: NEXT[item.status] }); reload(); } catch (e) { toast(e.message, 'bad'); }
   }
@@ -14,7 +24,7 @@ export default function BoardView({ items, canManage, me, onOpen, reload }) {
       {COLUMNS.map((col) => {
         const cards = items.filter((i) => i.status === col.key);
         return (
-          <section key={col.key} className={`col col-${col.key}`} aria-label={col.label}>
+          <section key={col.key} className={`col col-${col.key}${over === col.key ? ' drop' : ''}`} aria-label={col.label} onDragOver={(e) => { e.preventDefault(); setOver(col.key); }} onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget) && setOver('')} onDrop={(e) => drop(col, e)}>
             <h3>{col.label} <span className="count">{cards.length}</span></h3>
             {cards.length === 0 && <div className="col-empty muted small">Nothing here</div>}
             {cards.map((i) => {
@@ -23,7 +33,7 @@ export default function BoardView({ items, canManage, me, onOpen, reload }) {
               const cl = checklistStats(i);
               const labels = i.labels || [];
               return (
-                <div key={i._id} className={`kcard ${isLate(i.dueDate, i.status) ? 'late' : ''}`}>
+                <div key={i._id} className={`kcard ${isLate(i.dueDate, i.status) ? 'late' : ''}`} draggable={canManage || mine} onDragStart={(e) => { e.dataTransfer.setData('text/plain', i._id); e.dataTransfer.effectAllowed = 'move'; }}>
                   <button type="button" className="kcard-main" onClick={() => onOpen(i._id)}>
                     <span className={`dot ${i.priority}`} aria-label={`${i.priority} priority`} />
                     <b>{i.title}</b>

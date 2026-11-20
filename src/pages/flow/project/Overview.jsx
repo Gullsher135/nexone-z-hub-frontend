@@ -1,21 +1,61 @@
 import { Link } from 'react-router-dom';
 import { ProgressBar } from '../../../components.jsx';
 import { fmtDate } from '../../../lib/format.js';
-import { COLUMNS, RagChip, hoursText } from '../shared.jsx';
+import { COLUMNS, KINDS, RagChip, STAGES, STAGE_TONE, hoursText } from '../shared.jsx';
+import { rs } from '../../../lib/format.js';
 
 const Kpi = ({ v, l, tone }) => <div className="kpi"><div className="v" style={tone ? { color: `var(--${tone})` } : null}>{v}</div><div className="l">{l}</div></div>;
 
 // Where the project stands: health, workload per person, milestones, what is due next.
-export default function Overview({ project, health: h, onOpen, goTab }) {
+const mondayOf = (date) => { const x = new Date(date); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getTime(); };
+
+// Cards opened and cards finished per week, last 8 weeks: is the team keeping up?
+function Weekly({ items }) {
+  const now = mondayOf(new Date());
+  const weeks = Array.from({ length: 8 }, (_, n) => now - (7 - n) * 7 * 86400000);
+  const count = (field) => weeks.map((w) => items.filter((i) => i[field] && mondayOf(i[field]) === w).length);
+  const made = count('createdAt');
+  const done = count('completedAt');
+  const max = Math.max(1, ...made, ...done);
+  if (made.every((v) => !v) && done.every((v) => !v)) return null;
+  return (
+    <div className="panel panel-pad stack">
+      <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}><h2 style={{ margin: 0 }} className="grow">Weekly progress</h2><span className="small"><i className="sb-dot sb-todo" /> Opened</span><span className="small"><i className="sb-dot sb-done" /> Finished</span></div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 110 }} role="img" aria-label="Cards opened and finished per week">
+        {weeks.map((w, n) => (
+          <div key={w} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 84 }}>
+              <div title={`${made[n]} opened`} style={{ width: 12, height: `${(made[n] / max) * 100}%`, minHeight: made[n] ? 3 : 0, background: 'var(--ink-3)', borderRadius: 3 }} />
+              <div title={`${done[n]} finished`} style={{ width: 12, height: `${(done[n] / max) * 100}%`, minHeight: done[n] ? 3 : 0, background: 'var(--ok, #1f9d55)', borderRadius: 3 }} />
+            </div>
+            <span className="muted" style={{ fontSize: 11 }}>{new Date(w).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function Overview({ project, items = [], health: h, onOpen, goTab }) {
   const people = new Map([...(project.lead ? [project.lead] : []), ...project.members].map((m) => [m._id, m]));
   const maxOpen = Math.max(1, ...h.workload.map((w) => w.open));
   const total = Math.max(1, h.total);
+  const nonProject = project.kind && project.kind !== 'project';
   return (
     <div className="stack">
+      {nonProject && (
+        <div className="panel kpis">
+          <div className="kpi"><div className="v" style={{ fontSize: 20 }}>{project.stage ? <span className={`chip ${STAGE_TONE[project.stage]}`}>{STAGES[project.stage]}</span> : '-'}</div><div className="l">Stage</div></div>
+          <div className="kpi"><div className="v">{project.version ? `v${project.version}` : '-'}</div><div className="l">Current version</div></div>
+          <div className="kpi"><div className="v">{project.metrics?.customers ?? '-'}</div><div className="l">{project.kind === 'saas' ? 'Subscribers' : 'Customers'}</div></div>
+          {project.metrics?.mrr !== undefined && <div className="kpi"><div className="v">{rs(project.metrics.mrr)}</div><div className="l">{project.kind === 'saas' ? 'Monthly revenue' : 'Revenue so far'}</div></div>}
+        </div>
+      )}
+      <Weekly items={items} />
       <div className={`panel panel-pad health health-${h.rag}`}>
         <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
           <RagChip rag={h.rag} />
-          <b className="grow">{h.rag === 'green' ? 'This project is on track.' : h.rag === 'done' ? 'This project is completed.' : h.rag === 'none' ? 'Add cards to start tracking progress.' : 'This project needs attention.'}</b>
+          <b className="grow">{h.rag === 'green' ? `This ${(KINDS[project.kind] || KINDS.project).label.toLowerCase()} is on track.` : h.rag === 'done' ? 'Completed.' : h.rag === 'none' ? 'Add cards to start tracking progress.' : 'This needs attention.'}</b>
         </div>
         {h.reasons.length > 0 && <ul className="health-reasons">{h.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
       </div>

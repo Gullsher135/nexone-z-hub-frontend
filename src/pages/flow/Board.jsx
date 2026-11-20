@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { api } from '../../lib/api.js';
+import { api, downloadFile } from '../../lib/api.js';
 import { useAuth } from '../../lib/auth.jsx';
 import { useAsync } from '../../lib/useAsync.js';
 import { useToast } from '../../lib/toast.jsx';
@@ -8,7 +8,7 @@ import { Loading, ProgressBar, Tabs } from '../../components.jsx';
 import { fmtDate, rs } from '../../lib/format.js';
 import { EMPTY_FILTERS, applyFilters, labelsOf } from '../../lib/flowView.js';
 import { ProjectForm } from './Projects.jsx';
-import { Avatar, PROJECT_STATUS, PROJECT_TONE, RagChip } from './shared.jsx';
+import { Avatar, KindChip, PROJECT_STATUS, PROJECT_TONE, RagChip, STAGES, STAGE_TONE, kindOf } from './shared.jsx';
 import FilterBar from './project/FilterBar.jsx';
 import TaskModal from './project/TaskModal.jsx';
 import BoardView from './project/BoardView.jsx';
@@ -18,15 +18,21 @@ import TimelineView from './project/TimelineView.jsx';
 import Overview from './project/Overview.jsx';
 import Milestones from './project/Milestones.jsx';
 import LinksShare from './project/LinksShare.jsx';
+import Documents from './project/Documents.jsx';
+import Releases from './project/Releases.jsx';
+import Activity from './project/Activity.jsx';
 
-const TABS = [
+const tabsFor = (kind, unseen = 0) => [
   { value: 'overview', label: 'Overview' },
   { value: 'board', label: 'Board' },
   { value: 'list', label: 'List' },
   { value: 'calendar', label: 'Calendar' },
   { value: 'timeline', label: 'Timeline' },
   { value: 'milestones', label: 'Milestones' },
-  { value: 'links', label: 'Links' },
+  ...(kind === 'project' ? [] : [{ value: 'releases', label: 'Releases' }]), // products and SaaS ship versions
+  { value: 'documents', label: 'Documents' },
+  { value: 'activity', label: 'Activity' },
+  { value: 'links', label: `Links and client${unseen ? ` (${unseen})` : ''}` },
 ];
 const FILTERED = ['board', 'list', 'calendar', 'timeline']; // tabs that show cards, so search and filters apply
 
@@ -43,6 +49,9 @@ export default function Board() {
   const [editing, setEditing] = useState(false);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const d = state.data;
+  const unseen = (d?.project.clientFeedback || []).filter((f) => !f.seenAt).length;
+  const TABS = tabsFor(d?.project.kind || 'project', unseen);
+  const K = kindOf(d?.project);
   const tab = TABS.some((t) => t.value === sp.get('tab')) ? sp.get('tab') : 'board';
   const setTab = (t) => { const n = new URLSearchParams(sp); n.set('tab', t); n.delete('item'); setSp(n, { replace: true }); };
 
@@ -60,8 +69,8 @@ export default function Board() {
     try { await api.patch(`/flow/projects/${id}`, { status }); state.reload(); } catch (e) { toast(e.message, 'bad'); }
   }
   async function removeProject() {
-    if (!window.confirm(`Delete ${d.project.name} and all its cards? This cannot be undone.`)) return;
-    try { await api.del(`/flow/projects/${id}`); nav(`${base}/projects`); } catch (e) { toast(e.message, 'bad'); }
+    if (!window.confirm(`Delete ${d.project.name}, all its cards and its documents? This cannot be undone.`)) return;
+    try { await api.del(`/flow/projects/${id}`); nav(`${base}/${K.path}`); } catch (e) { toast(e.message, 'bad'); }
   }
 
   return (
@@ -70,14 +79,18 @@ export default function Board() {
         <>
           <div className="page-head">
             <div>
-              <div className="muted small"><Link to={`${base}/projects`}>Projects</Link> / {d.project.code}</div>
-              <h1>{d.project.name} <RagChip rag={d.health.rag} /></h1>
-              <p className="sub">{d.project.client ? d.project.client.name : 'Internal project'}{d.project.lead ? ` · Lead ${d.project.lead.name}` : ''}{d.project.dueDate ? ` · Deadline ${fmtDate(d.project.dueDate, true)}` : ''}{admin && d.project.budget ? ` · Budget ${rs(d.project.budget)}` : ''}</p>
+              <div className="muted small"><Link to={`${base}/${K.path}`}>{K.plural}</Link> / {d.project.code}</div>
+              <h1>{d.project.name} <KindChip kind={d.project.kind} /> <RagChip rag={d.health.rag} /></h1>
+              <p className="sub">
+                {d.project.kind === 'project' ? (d.project.client ? d.project.client.name : 'Internal project') : <>{d.project.stage && <span className={`chip ${STAGE_TONE[d.project.stage]}`}>{STAGES[d.project.stage]}</span>} {d.project.version ? `v${d.project.version}` : 'No version yet'}</>}
+                {d.project.lead ? ` · Lead ${d.project.lead.name}` : ''}{d.project.dueDate ? ` · ${d.project.kind === 'project' ? 'Deadline' : 'Target'} ${fmtDate(d.project.dueDate, true)}` : ''}{admin && d.project.budget ? ` · Budget ${rs(d.project.budget)}` : ''}
+              </p>
             </div>
             <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
               {admin ? <select value={d.project.status} onChange={(e) => setStatus(e.target.value)} aria-label="Project status">{Object.entries(PROJECT_STATUS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select> : <span className={`chip ${PROJECT_TONE[d.project.status]}`}>{PROJECT_STATUS[d.project.status]}</span>}
               {d.canManage && d.project.status !== 'completed' && <button className="btn primary" onClick={() => setCard({ create: true })}>Add card</button>}
-              {admin && <button className="btn" onClick={() => setEditing(true)}>Edit project</button>}
+              <button className="btn" onClick={() => downloadFile(`/flow/projects/${id}/export`, `${d.project.code}-cards.csv`).catch((e) => toast(e.message, 'bad'))}>Export cards</button>
+              {admin && <button className="btn" onClick={() => setEditing(true)}>Edit {K.label.toLowerCase()}</button>}
             </div>
           </div>
 
@@ -91,16 +104,19 @@ export default function Board() {
           <Tabs tabs={TABS} value={tab} onChange={setTab} />
           <div style={{ marginTop: 14 }}>
             {FILTERED.includes(tab) && <FilterBar filters={filters} setFilters={setFilters} team={team} labels={labelsOf(d.items)} milestones={milestones} shown={shown.length} total={d.items.length} />}
-            {tab === 'overview' && <Overview project={d.project} health={d.health} onOpen={(i) => setCard({ id: i })} goTab={setTab} />}
+            {tab === 'overview' && <Overview project={d.project} items={d.items} health={d.health} onOpen={(i) => setCard({ id: i })} goTab={setTab} />}
             {tab === 'board' && <BoardView items={shown} canManage={d.canManage} me={user._id} onOpen={(i) => setCard({ id: i })} reload={state.reload} />}
             {tab === 'list' && <ListView items={shown} milestones={milestones} onOpen={(i) => setCard({ id: i })} />}
             {tab === 'calendar' && <CalendarView items={shown} milestones={d.health.milestones} canManage={d.canManage && d.project.status !== 'completed'} onOpen={(i) => setCard({ id: i })} onCreate={(date) => setCard({ create: true, initial: { dueDate: date } })} />}
             {tab === 'timeline' && <TimelineView items={shown} milestones={d.health.milestones} project={d.project} onOpen={(i) => setCard({ id: i })} />}
             {tab === 'milestones' && <Milestones project={d.project} health={d.health} canManage={d.canManage} reload={state.reload} />}
+            {tab === 'releases' && <Releases project={d.project} canManage={d.canManage} reload={state.reload} />}
+            {tab === 'activity' && <Activity project={d.project} />}
+            {tab === 'documents' && <Documents project={d.project} canManage={d.canManage} me={user._id} />}
             {tab === 'links' && <LinksShare project={d.project} canManage={d.canManage} admin={admin} reload={state.reload} />}
           </div>
 
-          {admin && <p style={{ marginTop: 24 }}><button className="btn ghost sm" onClick={removeProject}>Delete this project</button></p>}
+          {admin && <p style={{ marginTop: 24 }}><button className="btn ghost sm" onClick={removeProject}>Delete this {K.label.toLowerCase()}</button></p>}
           {current && <TaskModal key={current._id} project={d.project} items={d.items} item={current} canManage={d.canManage} me={user._id} onClose={closeCard} onChanged={state.reload} />}
           {card?.create && <TaskModal project={d.project} items={d.items} item={null} initial={card.initial} canManage={d.canManage} me={user._id} onClose={closeCard} onChanged={state.reload} />}
           {editing && <ProjectForm project={d.project} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); state.reload(); }} />}

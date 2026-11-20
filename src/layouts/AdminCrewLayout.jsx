@@ -10,6 +10,7 @@ const items = [
   { to: '/admin/crew/policy', label: 'Leave policy', icon: Icon.gear },
   { to: '/admin/people', label: 'People', icon: Icon.people },
   { to: '/admin/leaves', label: 'Leave requests', icon: Icon.leave },
+  { to: '/admin/crew/notifications', label: 'Notification health', icon: Icon.bell },
 ];
 
 export default function AdminCrewLayout() {

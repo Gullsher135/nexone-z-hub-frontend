@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import FlowSearch from './FlowSearch.jsx';
 import { api } from '../../lib/api.js';
 import { useAsync } from '../../lib/useAsync.js';
 import { useToast } from '../../lib/toast.jsx';
@@ -31,6 +32,7 @@ export default function MyWork() {
 
   return (
     <>
+      <div style={{ marginBottom: 12 }}><FlowSearch base="/flow" /></div>
       <div className="page-head"><div><h1>My work</h1><p className="sub">Cards assigned to you across all projects.</p></div></div>
       <Loading state={state}>
         {state.data && (

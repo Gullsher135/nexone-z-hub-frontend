@@ -22,6 +22,7 @@ import Settings from './pages/admin/Settings.jsx';
 import Hub from './pages/Hub.jsx';
 import FlowLayout from './layouts/FlowLayout.jsx';
 import FlowHome from './pages/flow/FlowHome.jsx';
+import TimeReport from './pages/flow/TimeReport.jsx';
 import Projects from './pages/flow/Projects.jsx';
 import ProjectBoard from './pages/flow/Board.jsx';
 import Clients from './pages/flow/Clients.jsx';
@@ -45,6 +46,7 @@ import Notices from './pages/crew/Notices.jsx';
 import Team from './pages/crew/Team.jsx';
 import Profile from './pages/crew/Profile.jsx';
 import AdminNotices from './pages/crew/AdminNotices.jsx';
+import NotificationHealth from './pages/crew/NotificationHealth.jsx';
 import AdminTasks from './pages/crew/AdminTasks.jsx';
 import AdminPolicy from './pages/crew/AdminPolicy.jsx';
 import Verify from './pages/Verify.jsx';
@@ -131,8 +133,13 @@ export default function App() {
         </Route>
         <Route path="/flow" element={<FlowLayout />}>
           <Route index element={<MyWork />} />
-          <Route path="projects" element={<Projects />} />
+          <Route path="projects" element={<Projects kind="project" />} />
           <Route path="projects/:id" element={<ProjectBoard />} />
+          <Route path="products" element={<Projects kind="product" />} />
+          <Route path="products/:id" element={<ProjectBoard />} />
+          <Route path="reports" element={<TimeReport />} />
+          <Route path="saas" element={<Projects kind="saas" />} />
+          <Route path="saas/:id" element={<ProjectBoard />} />
           <Route path="account" element={<Account />} />
         </Route>
         <Route path="/time" element={<StaffLayout />}>
@@ -146,8 +153,12 @@ export default function App() {
         <Route path="/hub" element={<Hub />} />
         <Route path="/admin/flow" element={<FlowLayout />}>
           <Route index element={<FlowHome />} />
-          <Route path="projects" element={<Projects />} />
+          <Route path="projects" element={<Projects kind="project" />} />
           <Route path="projects/:id" element={<ProjectBoard />} />
+          <Route path="products" element={<Projects kind="product" />} />
+          <Route path="products/:id" element={<ProjectBoard />} />
+          <Route path="saas" element={<Projects kind="saas" />} />
+          <Route path="saas/:id" element={<ProjectBoard />} />
           <Route path="clients" element={<Clients />} />
         </Route>
         <Route path="/admin/pay" element={<PayLayout />}>
@@ -158,6 +169,7 @@ export default function App() {
         </Route>
         <Route path="/admin/crew" element={<AdminCrewLayout />}>
           <Route index element={<AdminNotices />} />
+          <Route path="notifications" element={<NotificationHealth />} />
           <Route path="tasks" element={<AdminTasks />} />
           <Route path="policy" element={<AdminPolicy />} />
           <Route path="letters" element={<AdminLetters />} />

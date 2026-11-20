@@ -19,6 +19,9 @@ export default function FlowLayout() {
         { sep: true },
         { to: '/admin/flow', label: 'Overview', icon: Icon.chart, end: true, badge, badgeTitle },
         { to: '/admin/flow/projects', label: 'Projects', icon: Icon.book },
+        { to: '/admin/flow/products', label: 'Products', icon: Icon.box },
+        { to: '/admin/flow/saas', label: 'SaaS', icon: Icon.cloud },
+        { to: '/admin/flow/reports', label: 'Time report', icon: Icon.clock },
         { to: '/admin/flow/clients', label: 'Clients', icon: Icon.people },
       ]
     : [
@@ -26,6 +29,8 @@ export default function FlowLayout() {
         { sep: true },
         { to: '/flow', label: 'My work', icon: Icon.check, end: true, badge, badgeTitle },
         { to: '/flow/projects', label: 'Projects', icon: Icon.book },
+        { to: '/flow/products', label: 'Products', icon: Icon.box },
+        { to: '/flow/saas', label: 'SaaS', icon: Icon.cloud },
       ];
   const links = admin
     ? { time: '/admin', learn: '/admin/learn', crew: '/admin/crew', pay: '/admin/pay', flow: '/admin/flow' }

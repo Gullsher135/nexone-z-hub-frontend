@@ -1,38 +1,38 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './lib/auth.jsx';
 import { useToast } from './lib/toast.jsx';
-import { disablePush, enablePush, isIos, isStandalone, pushState, pushSupported, syncPush } from './lib/push.js';
+import { NotificationSettings } from './NotificationCenter.jsx';
+import { enablePush, isIos, isStandalone, pushState, pushSupported, syncPush } from './lib/push.js';
 
-const DISMISS_KEY = 'nz_push_dismissed';
+const DISMISS_KEY = 'nz_push_dismissed_at';
+const REASK_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // asked again after 3 days: a missed "Turn on" should not hide it forever
 
-// Small banner at the top of every page: asks once to allow notifications (works even when the site is closed).
+const recentlyDismissed = () => Date.now() - Number(localStorage.getItem(DISMISS_KEY) || 0) < REASK_AFTER_MS;
+
+// Banner at the top of every page: asks to allow notifications (they work even when the site is closed).
 export default function PushPrompt() {
   const { user } = useAuth();
   const toast = useToast();
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem(DISMISS_KEY) === '1');
+  const [hidden, setHidden] = useState(recentlyDismissed);
+  const [settings, setSettings] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    pushState().then((s) => { setState(s); if (s === 'on') syncPush(); });
+    syncPush().finally(() => pushState().then(setState));
   }, [user]);
 
   async function turnOn() {
     setBusy(true);
-    try { await enablePush(); setState('on'); toast('Notifications are on'); } catch (e) { toast(e.message, 'bad'); setState(await pushState()); } finally { setBusy(false); }
-  }
-  async function turnOff() {
-    setBusy(true);
-    await disablePush();
+    try { await enablePush(); toast('Notifications are on'); } catch (e) { toast(e.message, 'bad'); }
     setState(await pushState());
-    localStorage.removeItem(DISMISS_KEY);
     setBusy(false);
   }
-  const hide = () => { localStorage.setItem(DISMISS_KEY, '1'); setDismissed(true); };
+  const hide = () => { localStorage.setItem(DISMISS_KEY, String(Date.now())); setHidden(true); };
 
   // iPhone/iPad only allow notifications for apps added to the Home Screen.
-  if (!pushSupported() && isIos() && !isStandalone() && !dismissed) {
+  if (!pushSupported() && isIos() && !isStandalone() && !hidden) {
     return (
       <div className="alert warn" style={{ marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <span className="grow">To get notifications on iPhone: tap Share, then "Add to Home Screen", and open NexoneZ from the home screen.</span>
@@ -40,17 +40,26 @@ export default function PushPrompt() {
       </div>
     );
   }
-  if (state === 'off' && !dismissed) {
+  if (state === 'off' && !hidden) {
     return (
-      <div className="alert warn" style={{ marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span className="grow">Get notices and announcements on this device, even when the website is closed.</span>
-        <button className="btn sm primary" onClick={turnOn} disabled={busy}>{busy ? 'Turning on...' : 'Turn on notifications'}</button>
-        <button className="btn sm" onClick={hide}>Not now</button>
-      </div>
+      <>
+        <div className="alert warn" style={{ marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="grow">Get notices, tasks and reminders on this device, even when the website is closed.</span>
+          <button className="btn sm primary" onClick={turnOn} disabled={busy}>{busy ? 'Turning on...' : 'Turn on notifications'}</button>
+          <button className="btn sm" onClick={() => setSettings(true)}>More options</button>
+          <button className="btn sm ghost" onClick={hide}>Later</button>
+        </div>
+        {settings && <NotificationSettings onClose={() => { setSettings(false); pushState().then(setState); }} />}
+      </>
     );
   }
-  if (state === 'on') {
-    return <div className="muted small" style={{ marginBottom: 10, textAlign: 'right' }}>Notifications are on for this device. <button className="link-btn small" onClick={turnOff} disabled={busy}>Turn off</button></div>;
+  if (state === 'denied' && !hidden) {
+    return (
+      <div className="alert bad" style={{ marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span className="grow">Notifications are blocked for this site. Tap the lock icon next to the address and allow Notifications.</span>
+        <button className="btn sm" onClick={hide}>OK</button>
+      </div>
+    );
   }
   return null;
 }

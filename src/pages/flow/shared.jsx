@@ -26,3 +26,38 @@ export const initials = (n = '?') => n.split(/\s+/).slice(0, 2).map((w) => w[0])
 export function Avatar({ name, size = 26 }) {
   return <span className="avatar" title={name} style={{ width: size, height: size, fontSize: size * 0.4 }}>{initials(name)}</span>;
 }
+
+// ---- what Flow tracks: project, product or SaaS (the words here are shown to the team when they create one) ----
+export const KIND_ORDER = ['project', 'product', 'saas'];
+export const KINDS = {
+  project: {
+    label: 'Project', plural: 'Projects', path: 'projects', tone: 'muted',
+    short: 'Built for one client, delivered once.',
+    defines: 'Client work with a fixed scope, budget and deadline. We build it once for one client, deliver it and hand it over. It ends when it is delivered.',
+    example: 'A website for a client, a custom mobile app, a one-off integration.',
+    due: 'Deadline', budget: 'Budget (Rs)',
+  },
+  product: {
+    label: 'Product', plural: 'Products', path: 'products', tone: 'ok',
+    short: 'Built by us, sold to many customers as a package.',
+    defines: 'Software we build ourselves and sell or license to many customers as a package. It has versions and releases and a roadmap, and no fixed end date.',
+    example: 'A school management system sold with a one-time licence, a desktop tool, a template pack.',
+    due: 'Target launch (optional)', budget: 'Development budget (Rs)',
+  },
+  saas: {
+    label: 'SaaS', plural: 'SaaS', path: 'saas', tone: 'info',
+    short: 'Hosted by us, customers pay by subscription.',
+    defines: 'A product we host online and customers use by subscription, monthly or yearly. One running system serves many customers. We ship updates continuously and look after uptime, support and billing.',
+    example: 'NexoneZ Hub offered to institutes for a monthly fee.',
+    due: 'Target launch (optional)', budget: 'Development budget (Rs)',
+  },
+};
+export const kindOf = (p) => KINDS[p?.kind] || KINDS.project;
+export const KindChip = ({ kind = 'project' }) => <span className={`chip ${(KINDS[kind] || KINDS.project).tone}`}>{(KINDS[kind] || KINDS.project).label}</span>;
+export const STAGES = { idea: 'Idea', building: 'Building', beta: 'Beta', live: 'Live', maintenance: 'Maintenance' };
+export const STAGE_TONE = { idea: 'muted', building: 'info', beta: 'warn', live: 'ok', maintenance: 'muted' };
+export const RELEASE_TYPES = { major: 'Major', minor: 'Minor', patch: 'Patch', hotfix: 'Hotfix' };
+export const RELEASE_TONE = { major: 'info', minor: 'ok', patch: 'muted', hotfix: 'bad' };
+export const DOC_CATEGORIES = { requirements: 'Requirements', design: 'Design', technical: 'Technical', contract: 'Contract', report: 'Report', meeting: 'Meeting notes', other: 'Other' };
+export const fileSize = (n = 0) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} B`);
+export const extOf = (name = '') => (name.includes('.') ? name.split('.').pop().slice(0, 4).toUpperCase() : 'FILE');

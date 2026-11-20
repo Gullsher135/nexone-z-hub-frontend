@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../../lib/api.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { api, downloadFile, uploadProjectDoc } from '../../../lib/api.js';
+import { useAsync } from '../../../lib/useAsync.js';
 import { useToast } from '../../../lib/toast.jsx';
 import { Field, Modal, ProgressBar } from '../../../components.jsx';
 import { fmtDate } from '../../../lib/format.js';
 import { isBlocked, localToday } from '../../../lib/flowView.js';
-import { COLUMNS, PRIORITIES, PRIORITY_TONE, TYPES, TypeChip, hoursText, isLate, when } from '../shared.jsx';
+import { COLUMNS, PRIORITIES, PRIORITY_TONE, TYPES, TypeChip, extOf, fileSize, hoursText, isLate, when } from '../shared.jsx';
 
 const draftOf = (item, initial) => ({
   title: item?.title || '', description: item?.description || '', type: item?.type || 'task', priority: item?.priority || 'medium',
@@ -103,7 +104,42 @@ function TimeLog({ item, canLog, canManage, me, onChanged }) {
   );
 }
 
-function Discussion({ item, onChanged }) {
+// Files on one card (screenshots of a bug, a design, a spec). Everybody on the project can add and download.
+function CardFiles({ project, item, canManage, me }) {
+  const toast = useToast();
+  const state = useAsync(() => api.get(`/flow/projects/${project._id}/documents?item=${item._id}`), [item._id]);
+  const input = useRef(null);
+  const [busy, setBusy] = useState(false);
+  async function add(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setBusy(true);
+    for (const file of files) { try { await uploadProjectDoc(file, project._id, { item: item._id }); } catch (err) { toast(err.message, 'bad'); } }
+    setBusy(false);
+    if (input.current) input.current.value = '';
+    state.reload();
+  }
+  async function remove(d) {
+    if (!window.confirm(`Delete "${d.title}"?`)) return;
+    try { await api.del(`/flow/documents/${d._id}`); state.reload(); } catch (err) { toast(err.message, 'bad'); }
+  }
+  const list = state.data?.items || [];
+  return (
+    <div className="tm-section">
+      <div className="row"><b className="grow">Attachments ({list.length})</b><button type="button" className="btn sm" disabled={busy} onClick={() => input.current?.click()}>{busy ? 'Uploading...' : 'Add file'}</button><input ref={input} type="file" multiple hidden onChange={add} /></div>
+      {list.length === 0 ? <div className="muted small">No files yet. Up to {state.data?.maxMb || 10} MB each.</div> : list.map((d) => (
+        <div className="row small" key={d._id} style={{ gap: 8, padding: '6px 0' }}>
+          <span className="ext-badge" style={{ minWidth: 32, height: 32, fontSize: 10 }}>{extOf(d.name)}</span>
+          <span className="grow"><b>{d.title}</b><br /><span className="muted">{fileSize(d.size)} · {d.uploadedBy?.name || 'Someone'} · {when(d.createdAt)}</span></span>
+          <button type="button" className="btn sm" onClick={() => downloadFile(`/flow/documents/${d._id}/download`, d.name || d.title).catch((err) => toast(err.message, 'bad'))}>Download</button>
+          {(canManage || d.uploadedBy?._id === me) && <button type="button" className="btn sm ghost" onClick={() => remove(d)} aria-label={`Delete ${d.title}`}>Delete</button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Discussion({ item, onChanged, team = [] }) {
   const toast = useToast();
   const [tab, setTab] = useState('comments');
   const [text, setText] = useState('');
@@ -122,7 +158,8 @@ function Discussion({ item, onChanged }) {
       {tab === 'comments' ? (
         <div className="comments" style={{ borderTop: 0, paddingTop: 0 }}>
           {item.comments.map((c) => <div key={c._id} className="comment"><b>{c.author?.name || 'Someone'}</b> <span className="muted small">{when(c.at)}</span><div>{c.text}</div></div>)}
-          <form className="row" onSubmit={send}><input type="text" className="grow" placeholder="Add an update" value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} aria-label="Comment" /><button className="btn sm">Send</button></form>
+          <form className="row" onSubmit={send}><input type="text" className="grow" placeholder="Add an update. Type @name to notify someone" value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} aria-label="Comment" /><button className="btn sm">Send</button></form>
+          {team.length > 0 && <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}><span className="muted small">Mention:</span>{team.slice(0, 10).map((m) => <button type="button" key={m._id} className="chip muted" style={{ border: 0, cursor: 'pointer' }} onClick={() => setText((t) => `${t}${t && !t.endsWith(' ') ? ' ' : ''}@${m.name} `)}>@{m.name}</button>)}</div>}
         </div>
       ) : (
         <div className="tm-history">
@@ -217,7 +254,8 @@ export default function TaskModal({ project, items, item, initial, canManage, me
           <Checklist list={checklist} editable={creating ? canManage : canWork} onChange={(list) => { const before = checklist; setChecklist(list); if (!creating) persist({ checklist: list }, () => setChecklist(before)); }} />
           <LinkList list={links} editable={creating ? canManage : canWork} onChange={(list) => { const before = links; setLinks(list); if (!creating) persist({ links: list }, () => setLinks(before)); }} />
           {!creating && <TimeLog item={item} canLog={canWork} canManage={canManage} me={me} onChanged={onChanged} />}
-          {!creating && <Discussion item={item} onChanged={onChanged} />}
+          {!creating && <Discussion item={item} onChanged={onChanged} team={[project.lead, ...(project.members || [])].filter(Boolean).filter((m, n, a) => a.findIndex((x) => x._id === m._id) === n)} />}
+          {!creating && <CardFiles project={project} item={item} canManage={canManage} me={me} />}
         </div>
 
         <aside className="tm-side stack">

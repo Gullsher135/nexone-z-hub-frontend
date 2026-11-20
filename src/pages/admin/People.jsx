@@ -35,7 +35,7 @@ function PersonForm({ role, person, batches, onClose, onSaved }) {
   const toast = useToast();
   const p = person;
   const [f, setF] = useState({
-    name: p?.name || '', email: p?.email || '', phone: p?.phone || '', cnic: p?.cnic || '',
+    name: p?.name || '', email: p?.email || '', contactEmail: p?.contactEmail || '', phone: p?.phone || '', cnic: p?.cnic || '',
     designation: p?.designation || '', department: p?.department || '',
     joiningDate: p?.joiningDate || todayKey(),
     shiftStart: p?.shift?.start || '09:00', shiftEnd: p?.shift?.end || '18:00', grace: p?.shift?.graceMinutes ?? 15,
@@ -53,7 +53,7 @@ function PersonForm({ role, person, batches, onClose, onSaved }) {
     e.preventDefault();
     setError('');
     setBusy(true);
-    const body = { role, name: f.name, email: f.email || undefined, phone: f.phone, cnic: f.cnic };
+    const body = { role, name: f.name, email: f.email || undefined, contactEmail: f.contactEmail.trim(), phone: f.phone, cnic: f.cnic };
     if (staff) {
       Object.assign(body, {
         designation: f.designation, department: f.department, joiningDate: f.joiningDate,
@@ -98,6 +98,7 @@ function PersonForm({ role, person, batches, onClose, onSaved }) {
         <div className="form-grid">
           <Field label="Full name"><input type="text" value={f.name} onChange={set('name')} required /></Field>
           <Field label="Login email" hint={p ? undefined : 'Leave empty to create it automatically from the ID, like nz-std-0008@nexonez.com.'}><input type="email" value={f.email} onChange={set('email')} placeholder={p ? '' : 'Automatic'} /></Field>
+          <Field label="Personal email (optional)" hint="A real mailbox. Important updates are emailed here, so they arrive even when the phone is off."><input type="email" value={f.contactEmail} onChange={set('contactEmail')} placeholder="name@gmail.com" /></Field>
           <Field label="Phone"><input type="tel" value={f.phone} onChange={set('phone')} /></Field>
           <Field label="CNIC (optional)"><input type="text" value={f.cnic} onChange={set('cnic')} placeholder="00000-0000000-0" /></Field>
 

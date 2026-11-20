@@ -1,6 +1,8 @@
 // NexoneZ Hub service worker: shows notifications even when the website is closed.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+// Needed so phones and computers offer to install the site as an app (an installed app gets alerts more reliably).
+self.addEventListener('fetch', () => {});
 
 self.addEventListener('push', (event) => {
   let d = {};
@@ -11,6 +13,9 @@ self.addEventListener('push', (event) => {
       icon: '/hub-icon-512.png',
       badge: '/hub-icon.png',
       tag: d.tag || undefined,
+      renotify: !!d.tag,
+      vibrate: [120, 60, 120],
+      timestamp: Date.now(),
       data: { url: d.url || '/' },
     })
   );

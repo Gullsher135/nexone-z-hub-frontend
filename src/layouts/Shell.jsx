@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth.jsx';
 import { Icon } from '../components.jsx';
 import { ModuleSwitch, ProductOf, moduleOf } from '../brand.jsx';
 import PushPrompt from '../PushPrompt.jsx';
+import { NotificationBell } from '../NotificationCenter.jsx';
 
 // One responsive shell for every module: sidebar on desktop, drawer on phones.
 // `links` are the live modules this person can open; `items` is the module's own menu.
@@ -32,7 +33,8 @@ export default function Shell({ module, items, links, accountPath, rootPath, hid
       <header className="mbar">
         <button className="icon-btn" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(true)}>{Icon.menu}</button>
         <img className="mbar-logo" src={mod.icon} alt={mod.name} />
-        <div className="mbar-title">{current?.label || mod.name}</div>
+        <div className="mbar-title grow">{current?.label || mod.name}</div>
+        <NotificationBell variant="icon" />
       </header>
       <div className={`scrim ${open ? 'on' : ''}`} onClick={() => setOpen(false)} aria-hidden="true" />
       <aside className={`side ${open ? 'open' : ''}`} aria-label="Menu">
@@ -55,6 +57,7 @@ export default function Shell({ module, items, links, accountPath, rootPath, hid
           <ProductOf className="side-product" />
           <div className="small" style={{ fontWeight: 600 }}>{user.name}</div>
           <div className="row" style={{ marginTop: 8 }}>
+            <NotificationBell variant="link" />
             <Link to={accountPath} className="small">Password</Link>
             <button className="link-btn small" onClick={logout}>Log out</button>
           </div>
