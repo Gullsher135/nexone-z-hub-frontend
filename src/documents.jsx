@@ -288,3 +288,22 @@ export function CompletionCertificate({ name, course, category, issuedAt, code }
     </div>
   );
 }
+
+
+// ============ Competition certificate (winners and participants) ============
+export function CompetitionCertificate({ name, competition, awardText, award, date, issuedAt, code, issuer }) {
+  const won = award && award !== 'participation';
+  return (
+    <Certificate
+      title={won ? 'Certificate of Achievement' : 'Certificate of Participation'}
+      subtitle={competition}
+      lead={won ? 'This certificate is proudly presented to' : 'This is to certify that'}
+      name={name}
+      body={won ? `for outstanding performance and securing the following in the competition${date ? `, held on ${longDate(date)}` : ''}:` : `took part in the competition${date ? `, held on ${longDate(date)}` : ''}, and showed commitment and a spirit of learning.`}
+      highlight={won ? awardText : undefined}
+      note={`Awarded by ${issuer || 'NexoneZ Software House'}. Keep learning, keep building.`}
+      issuedAt={issuedAt}
+      code={code}
+    />
+  );
+}

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAsync } from '../lib/useAsync.js';
 import { Loading } from '../components.jsx';
-import { Certificate, CompletionCertificate, internshipProps, longDate } from '../documents.jsx';
+import { Certificate, CompetitionCertificate, CompletionCertificate, internshipProps, longDate } from '../documents.jsx';
 
 const fmt = (d) => new Date(d).toLocaleDateString('en-GB', { timeZone: 'Asia/Karachi', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -25,7 +25,8 @@ function Lookup() {
 export default function Verify() {
   const { code } = useParams();
   if (!code) return <Lookup />;
-  return /^NZL-/i.test(code) ? <LetterCheck code={code} /> : <CourseCertificate code={code} />;
+  if (/^NZL-/i.test(code)) return <LetterCheck code={code} />;
+  return /^NZC-/i.test(code) ? <CompetitionCert code={code} /> : <CourseCertificate code={code} />;
 }
 
 function NotFound({ code }) {
@@ -50,6 +51,25 @@ function CourseCertificate({ code }) {
             <div className="verified-bar no-print"><span className="chip ok">Verified</span> This certificate is genuine and was issued by NexoneZ Software House.
               <button className="btn sm primary" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>Print or save as PDF</button></div>
             <CompletionCertificate name={c.student} course={c.course} category={c.category} issuedAt={c.issuedAt} code={c.code} />
+          </>
+        )}
+      </Loading>
+    </div>
+  );
+}
+
+function CompetitionCert({ code }) {
+  const state = useAsync(() => api.get(`/lms/competition-verify/${encodeURIComponent(code)}`), [code]);
+  const c = state.data;
+  return (
+    <div className="verify-wrap cert-page">
+      <Loading state={{ ...state, error: '' }}>
+        {state.error && <NotFound code={code} />}
+        {c && (
+          <>
+            <div className="verified-bar no-print"><span className="chip ok">Verified</span> This certificate is genuine and was issued by {c.issuer || 'NexoneZ Software House'}.
+              <button className="btn sm primary" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>Print or save as PDF</button></div>
+            <CompetitionCertificate name={c.student} competition={c.competition} awardText={c.awardText} award={c.award} date={c.date} issuedAt={c.issuedAt} code={c.code} issuer={c.issuer} />
           </>
         )}
       </Loading>

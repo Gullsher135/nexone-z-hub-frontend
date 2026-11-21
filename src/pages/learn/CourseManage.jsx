@@ -8,7 +8,7 @@ import { fmtDate } from '../../lib/format.js';
 import { Cover, Empty, Field, Loading, Modal, ProgressBar, Tabs, LEVEL_LABEL } from '../../components.jsx';
 import ProgressDetail, { PART_LABEL, PART_SHORT } from './ProgressDetail.jsx';
 import { FileList, FilePicker } from '../../lib/files.jsx';
-import { BatchPicker, batchState, batchPayload, forLabel } from './batchPicker.jsx';
+import { BatchPicker, audienceError, batchState, batchPayload, forLabel, studentPayload } from './batchPicker.jsx';
 import { ManagePresentations } from './Presentations.jsx';
 import { CodeBlock, SectionHead, groupSections, isAutoQ, marksLabel } from './quizParts.jsx';
 
@@ -388,9 +388,10 @@ function AssignmentForm({ course, item, onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     setError('');
-    if (f.batchMode === 'some' && f.batches.length === 0) { setBusy(false); return setError('Choose at least one batch, or select all batches.'); }
+    const aud = audienceError(f);
+    if (aud) { setBusy(false); return setError(aud); }
     const { batchMode, ...rest } = f; // eslint-disable-line no-unused-vars
-    const body = { ...rest, batches: batchPayload(f), attachmentIds: files.map((x) => x.file), dueDate: f.dueDate || undefined, maxPoints: Number(f.maxPoints) };
+    const body = { ...rest, batches: batchPayload(f), students: studentPayload(f), attachmentIds: files.map((x) => x.file), dueDate: f.dueDate || undefined, maxPoints: Number(f.maxPoints) };
     try {
       if (item) await api.patch(`/lms/assignments/${item._id}`, body); else await api.post(`/lms/courses/${course._id}/assignments`, body);
       toast('Assignment saved');
@@ -579,7 +580,8 @@ function QuizForm({ course, item, onClose, onSaved }) {
   async function save(e) {
     e.preventDefault();
     setError('');
-    if (f.batchMode === 'some' && f.batches.length === 0) return setError('Choose at least one batch, or select all batches.');
+    const aud = audienceError(f);
+    if (aud) return setError(aud);
     const questions = [];
     let section = '';
     f.rows.forEach((r) => {
@@ -592,7 +594,7 @@ function QuizForm({ course, item, onClose, onSaved }) {
       } else questions.push({ ...base, options: [], correctIndex: r.correctIndex });
     });
     const { batchMode, rows, ...rest } = f; // eslint-disable-line no-unused-vars
-    const body = { ...rest, batches: batchPayload(f), maxAttempts: Number(f.maxAttempts), timeLimit: Number(f.timeLimit) || 0, questions };
+    const body = { ...rest, batches: batchPayload(f), students: studentPayload(f), maxAttempts: Number(f.maxAttempts), timeLimit: Number(f.timeLimit) || 0, questions };
     setBusy(true);
     try {
       if (item) await api.patch(`/lms/quizzes/${item._id}`, body); else await api.post(`/lms/courses/${course._id}/quizzes`, body);

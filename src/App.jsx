@@ -60,6 +60,8 @@ import StudentHome from './pages/learn/StudentHome.jsx';
 import MyCourses from './pages/learn/MyCourses.jsx';
 import CoursePlayer from './pages/learn/CoursePlayer.jsx';
 import Certificates from './pages/learn/Certificates.jsx';
+import Competitions, { CompetitionDetail } from './pages/learn/Competitions.jsx';
+import MyCompetitions from './pages/learn/MyCompetitions.jsx';
 
 function Protected({ role }) {
   const { user, loading } = useAuth();
@@ -103,6 +105,7 @@ export default function App() {
           <Route path="courses" element={<MyCourses />} />
           <Route path="course/:id" element={<CoursePlayer />} />
           <Route path="certificates" element={<Certificates />} />
+          <Route path="competitions" element={<MyCompetitions />} />
           <Route path="fees" element={<MyFees />} />
           <Route path="notices" element={<Notices />} />
           <Route path="account" element={<Account />} />
@@ -113,6 +116,8 @@ export default function App() {
         <Route path="/teach" element={<LearnAdminLayout teach />}>
           <Route index element={<LearnAdminHome teach />} />
           <Route path="attendance" element={<ClassAttendance teach />} />
+          <Route path="competitions" element={<Competitions teach />} />
+          <Route path="competitions/:id" element={<CompetitionDetail teach />} />
           <Route path="notices" element={<Notices />} />
           <Route path="account" element={<Account />} />
           <Route path=":id" element={<CourseManage teach />} />
@@ -176,6 +181,8 @@ export default function App() {
         </Route>
         <Route path="/admin/learn" element={<LearnAdminLayout />}>
           <Route index element={<LearnAdminHome />} />
+          <Route path="competitions" element={<Competitions />} />
+          <Route path="competitions/:id" element={<CompetitionDetail />} />
           <Route path="teachers" element={<Teachers />} />
           <Route path=":id" element={<CourseManage />} />
         </Route>

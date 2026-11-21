@@ -5,6 +5,7 @@ const items = [
   { to: '/learn', label: 'My learning', icon: Icon.home, end: true },
   { to: '/learn/courses', label: 'My courses', icon: Icon.book },
   { to: '/learn/certificates', label: 'Certificates', icon: Icon.check },
+  { to: '/learn/competitions', label: 'Competitions', icon: Icon.box },
   { to: '/learn/fees', label: 'My fees', icon: Icon.leave },
   { to: '/learn/notices', label: 'Notices', icon: Icon.bell },
 ];

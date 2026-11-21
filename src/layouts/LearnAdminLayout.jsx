@@ -11,6 +11,7 @@ export default function LearnAdminLayout({ teach = false }) {
   const items = [
     ...(isAdmin ? [{ to: '/hub', label: 'Hub home', icon: Icon.home, end: true }, { sep: true }] : []),
     { to: base, label: teach ? 'My courses' : 'Courses', icon: Icon.book, end: true },
+    { to: `${base}/competitions`, label: 'Competitions', icon: Icon.box },
     ...(teach ? [{ to: '/teach/attendance', label: 'Class attendance', icon: Icon.check }] : []),
     ...(teacherOnly ? [{ to: '/teach/notices', label: 'Notices', icon: Icon.bell }] : []),
     ...(isAdmin ? [{ to: '/admin/learn/teachers', label: 'Teachers', icon: Icon.user }, { to: '/admin/people', label: 'Students and staff', icon: Icon.people }] : []),
