@@ -4,8 +4,17 @@ export const TOKEN_KEY = 'nz_token';
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t) => (t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY));
 
+// Free hosting puts the server to sleep when nobody uses it, and the first request wakes it (up to a minute).
+// When a request takes longer than a few seconds the screen shows a message, so nobody thinks the site is broken.
+let pending = 0;
+let slowTimer = null;
+const slow = (on) => window.dispatchEvent(new CustomEvent('nz-slow', { detail: on }));
+const begin = () => { pending += 1; if (pending === 1) slowTimer = setTimeout(() => slow(true), 4000); };
+const end = () => { pending = Math.max(0, pending - 1); if (pending === 0) { clearTimeout(slowTimer); slow(false); } };
+
 async function request(method, path, body, { raw = false } = {}) {
   let res;
+  begin();
   try {
     res = await fetch(`${BASE}${path}`, {
       method,
@@ -17,6 +26,8 @@ async function request(method, path, body, { raw = false } = {}) {
     });
   } catch {
     throw new Error('Cannot reach the server. Check your internet connection and try again.');
+  } finally {
+    end();
   }
 
   if (raw && res.ok) return res;

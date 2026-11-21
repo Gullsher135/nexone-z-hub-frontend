@@ -30,6 +30,18 @@ export default function NotificationHealth() {
         {d && (
           <div className="stack">
             <div className="panel">
+              <div className="panel-head"><h2>Server speed</h2></div>
+              <div className="list-row" style={{ alignItems: 'flex-start' }}>
+                <span className={`chip ${d.perf.dbPingMs == null ? 'bad' : d.perf.dbPingMs < 60 ? 'ok' : d.perf.dbPingMs < 150 ? 'warn' : 'bad'}`}>{d.perf.dbPingMs == null ? 'Unknown' : `${d.perf.dbPingMs} ms`}</span>
+                <div className="grow"><b>Database answer time</b><div className="muted small">Under 60 ms is good. Above 150 ms means the server and the database are in different parts of the world: put both in the same region (for example both in Singapore or both in Frankfurt). Every page makes several database calls, so this number multiplies.</div></div>
+              </div>
+              <div className="list-row" style={{ alignItems: 'flex-start' }}>
+                <span className={`chip ${d.perf.uptimeMinutes < 10 ? 'warn' : 'ok'}`}>{d.perf.uptimeMinutes} min</span>
+                <div className="grow"><b>Server has been awake for</b><div className="muted small">If this number is small every time you look, the free server keeps going to sleep (the first page then takes up to a minute). Fix: a free timer at cron-job.org that opens /api/health every 10 minutes.</div></div>
+              </div>
+            </div>
+
+            <div className="panel">
               <div className="panel-head"><h2>Connections</h2></div>
               <Check ok={d.config.push} title="Phone and computer alerts (push)" fix="Run npm run vapid and add VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to the server settings." />
               <Check ok={d.config.email} title={`Email for people whose phone is off${d.config.emailFrom ? ` (from ${d.config.emailFrom})` : ''}`} fix="Make a free Brevo account, verify a sender email, then add BREVO_API_KEY and MAIL_FROM_EMAIL to the server settings." />

@@ -4,6 +4,7 @@ import { api } from './lib/api.js';
 import { useAuth } from './lib/auth.jsx';
 import { useToast } from './lib/toast.jsx';
 import { Field, Icon, Modal, Spinner } from './components.jsx';
+import { refreshUnread, setUnread as shareUnread, watchUnread } from './lib/unread.js';
 import { canInstall, disablePush, enablePush, isAndroid, isIos, isStandalone, onInstallChange, promptInstall, pushState, pushSupported } from './lib/push.js';
 
 const ago = (iso) => {
@@ -23,15 +24,7 @@ export function NotificationBell({ variant = 'icon' }) {
   const [more, setMore] = useState(false);
   const [settings, setSettings] = useState(false);
 
-  const poll = useCallback(() => api.get('/notifications/unread').then((r) => setUnread(r.unread)).catch(() => {}), []);
-  useEffect(() => {
-    poll();
-    const t = setInterval(poll, 60000);
-    const onVis = () => document.visibilityState === 'visible' && poll();
-    document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('focus', poll);
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', poll); };
-  }, [poll]);
+  useEffect(() => watchUnread(setUnread), []);
   useEffect(() => { navigator.setAppBadge?.(unread).catch?.(() => {}); if (!unread) navigator.clearAppBadge?.().catch?.(() => {}); }, [unread]);
 
   async function load(before) {
@@ -39,16 +32,16 @@ export function NotificationBell({ variant = 'icon' }) {
     if (!r) return;
     setItems((cur) => (before && cur ? [...cur, ...r.items] : r.items));
     setMore(r.items.length === 25);
-    setUnread(r.unread);
+    shareUnread(r.unread);
   }
   const toggle = () => { const next = !open; setOpen(next); if (next) load(); };
   async function go(n) {
     setOpen(false);
-    if (!n.readAt) api.post(`/notifications/${n._id}/read`).then((r) => setUnread(r.unread)).catch(() => {});
+    if (!n.readAt) api.post(`/notifications/${n._id}/read`).then((r) => shareUnread(r.unread)).catch(() => {});
     if (n.url?.startsWith('/')) nav(n.url);
   }
-  async function readAll() { const r = await api.post('/notifications/read-all').catch(() => null); if (r) { setUnread(0); setItems((cur) => cur?.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }))); } }
-  async function clear() { if (!window.confirm('Remove all notifications from this list?')) return; await api.del('/notifications').catch(() => {}); setItems([]); setUnread(0); setMore(false); }
+  async function readAll() { const r = await api.post('/notifications/read-all').catch(() => null); if (r) { shareUnread(0); setItems((cur) => cur?.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }))); } }
+  async function clear() { if (!window.confirm('Remove all notifications from this list?')) return; await api.del('/notifications').catch(() => {}); setItems([]); shareUnread(0); setMore(false); }
 
   return (
     <div className="bell-wrap">

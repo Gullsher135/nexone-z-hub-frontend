@@ -1,67 +1,72 @@
+import { Suspense, lazy } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth.jsx';
 import { Spinner, TableLabels } from './components.jsx';
+import SlowBanner from './SlowBanner.jsx';
 import Login from './pages/Login.jsx';
-import Scan from './pages/Scan.jsx';
-import OfficeSync from './pages/OfficeSync.jsx';
 import StaffLayout from './layouts/StaffLayout.jsx';
 import AdminLayout from './layouts/AdminLayout.jsx';
-import Today from './pages/staff/Today.jsx';
-import History from './pages/staff/History.jsx';
-import MyLeaves from './pages/staff/Leaves.jsx';
-import Account from './pages/Account.jsx';
-import Dashboard from './pages/admin/Dashboard.jsx';
-import Board from './pages/admin/Board.jsx';
-import People from './pages/admin/People.jsx';
-import Batches from './pages/admin/Batches.jsx';
-import ClassAttendance from './pages/admin/ClassAttendance.jsx';
-import AdminLeaves from './pages/admin/Leaves.jsx';
-import Reports from './pages/admin/Reports.jsx';
-import Qr from './pages/admin/Qr.jsx';
-import Settings from './pages/admin/Settings.jsx';
-import Hub from './pages/Hub.jsx';
 import FlowLayout from './layouts/FlowLayout.jsx';
-import FlowHome from './pages/flow/FlowHome.jsx';
-import TimeReport from './pages/flow/TimeReport.jsx';
-import Projects from './pages/flow/Projects.jsx';
-import ProjectBoard from './pages/flow/Board.jsx';
-import Clients from './pages/flow/Clients.jsx';
-import MyWork from './pages/flow/MyWork.jsx';
 import PayLayout from './layouts/PayLayout.jsx';
-import AuditLog from './pages/admin/AuditLog.jsx';
-import PayHome from './pages/pay/PayHome.jsx';
-import Fees from './pages/pay/Fees.jsx';
-import Payroll from './pages/pay/Payroll.jsx';
-import Salaries from './pages/pay/Salaries.jsx';
-import MyFees from './pages/learn/MyFees.jsx';
-import Payslips from './pages/crew/Payslips.jsx';
 import { Receipt, PayslipDoc, LetterDoc } from './pages/Print.jsx';
-import AdminLetters from './pages/crew/AdminLetters.jsx';
-import MyLetters from './pages/crew/MyLetters.jsx';
 import CrewLayout from './layouts/CrewLayout.jsx';
 import AdminCrewLayout from './layouts/AdminCrewLayout.jsx';
-import CrewHome from './pages/crew/CrewHome.jsx';
-import MyTasks from './pages/crew/MyTasks.jsx';
-import Notices from './pages/crew/Notices.jsx';
-import Team from './pages/crew/Team.jsx';
-import Profile from './pages/crew/Profile.jsx';
-import AdminNotices from './pages/crew/AdminNotices.jsx';
-import NotificationHealth from './pages/crew/NotificationHealth.jsx';
-import AdminTasks from './pages/crew/AdminTasks.jsx';
-import AdminPolicy from './pages/crew/AdminPolicy.jsx';
-import Verify from './pages/Verify.jsx';
 import LearnAdminLayout from './layouts/LearnAdminLayout.jsx';
 import StudentLayout from './layouts/StudentLayout.jsx';
-import LearnAdminHome from './pages/learn/LearnAdminHome.jsx';
-import CourseManage from './pages/learn/CourseManage.jsx';
-import Teachers from './pages/learn/Teachers.jsx';
-import ShareProject from './pages/ShareProject.jsx';
-import StudentHome from './pages/learn/StudentHome.jsx';
-import MyCourses from './pages/learn/MyCourses.jsx';
-import CoursePlayer from './pages/learn/CoursePlayer.jsx';
-import Certificates from './pages/learn/Certificates.jsx';
-import Competitions, { CompetitionDetail } from './pages/learn/Competitions.jsx';
-import MyCompetitions from './pages/learn/MyCompetitions.jsx';
+
+// Each screen is loaded only when it is opened, so the first visit downloads far less.
+const Scan = lazy(() => import('./pages/Scan.jsx'));
+const OfficeSync = lazy(() => import('./pages/OfficeSync.jsx'));
+const Today = lazy(() => import('./pages/staff/Today.jsx'));
+const History = lazy(() => import('./pages/staff/History.jsx'));
+const MyLeaves = lazy(() => import('./pages/staff/Leaves.jsx'));
+const Account = lazy(() => import('./pages/Account.jsx'));
+const Dashboard = lazy(() => import('./pages/admin/Dashboard.jsx'));
+const Board = lazy(() => import('./pages/admin/Board.jsx'));
+const People = lazy(() => import('./pages/admin/People.jsx'));
+const Batches = lazy(() => import('./pages/admin/Batches.jsx'));
+const ClassAttendance = lazy(() => import('./pages/admin/ClassAttendance.jsx'));
+const AdminLeaves = lazy(() => import('./pages/admin/Leaves.jsx'));
+const Reports = lazy(() => import('./pages/admin/Reports.jsx'));
+const Qr = lazy(() => import('./pages/admin/Qr.jsx'));
+const Settings = lazy(() => import('./pages/admin/Settings.jsx'));
+const Hub = lazy(() => import('./pages/Hub.jsx'));
+const FlowHome = lazy(() => import('./pages/flow/FlowHome.jsx'));
+const TimeReport = lazy(() => import('./pages/flow/TimeReport.jsx'));
+const Projects = lazy(() => import('./pages/flow/Projects.jsx'));
+const ProjectBoard = lazy(() => import('./pages/flow/Board.jsx'));
+const Clients = lazy(() => import('./pages/flow/Clients.jsx'));
+const MyWork = lazy(() => import('./pages/flow/MyWork.jsx'));
+const AuditLog = lazy(() => import('./pages/admin/AuditLog.jsx'));
+const PayHome = lazy(() => import('./pages/pay/PayHome.jsx'));
+const Fees = lazy(() => import('./pages/pay/Fees.jsx'));
+const Payroll = lazy(() => import('./pages/pay/Payroll.jsx'));
+const Salaries = lazy(() => import('./pages/pay/Salaries.jsx'));
+const MyFees = lazy(() => import('./pages/learn/MyFees.jsx'));
+const Payslips = lazy(() => import('./pages/crew/Payslips.jsx'));
+const AdminLetters = lazy(() => import('./pages/crew/AdminLetters.jsx'));
+const MyLetters = lazy(() => import('./pages/crew/MyLetters.jsx'));
+const CrewHome = lazy(() => import('./pages/crew/CrewHome.jsx'));
+const MyTasks = lazy(() => import('./pages/crew/MyTasks.jsx'));
+const Notices = lazy(() => import('./pages/crew/Notices.jsx'));
+const Team = lazy(() => import('./pages/crew/Team.jsx'));
+const Profile = lazy(() => import('./pages/crew/Profile.jsx'));
+const AdminNotices = lazy(() => import('./pages/crew/AdminNotices.jsx'));
+const NotificationHealth = lazy(() => import('./pages/crew/NotificationHealth.jsx'));
+const AdminTasks = lazy(() => import('./pages/crew/AdminTasks.jsx'));
+const AdminPolicy = lazy(() => import('./pages/crew/AdminPolicy.jsx'));
+const Verify = lazy(() => import('./pages/Verify.jsx'));
+const LearnAdminHome = lazy(() => import('./pages/learn/LearnAdminHome.jsx'));
+const CourseManage = lazy(() => import('./pages/learn/CourseManage.jsx'));
+const Teachers = lazy(() => import('./pages/learn/Teachers.jsx'));
+const ShareProject = lazy(() => import('./pages/ShareProject.jsx'));
+const StudentHome = lazy(() => import('./pages/learn/StudentHome.jsx'));
+const MyCourses = lazy(() => import('./pages/learn/MyCourses.jsx'));
+const CoursePlayer = lazy(() => import('./pages/learn/CoursePlayer.jsx'));
+const Certificates = lazy(() => import('./pages/learn/Certificates.jsx'));
+const Competitions = lazy(() => import('./pages/learn/Competitions.jsx'));
+const CompetitionDetail = lazy(() => import('./pages/learn/Competitions.jsx').then((m) => ({ default: m.CompetitionDetail })));
+const MyCompetitions = lazy(() => import('./pages/learn/MyCompetitions.jsx'));
 
 function Protected({ role }) {
   const { user, loading } = useAuth();
@@ -87,6 +92,8 @@ export default function App() {
   return (
     <>
     <TableLabels />
+    <SlowBanner />
+    <Suspense fallback={<Spinner />}>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/office-sync/:key" element={<OfficeSync />} />
@@ -203,6 +210,7 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
     </>
   );
 }
