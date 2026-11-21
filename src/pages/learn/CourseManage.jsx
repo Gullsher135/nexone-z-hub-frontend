@@ -774,8 +774,13 @@ function MarkAttempt({ attemptId, onClose, onSaved }) {
 }
 
 function Attempts({ quiz, onClose, onChanged }) {
+  const toast = useToast();
   const state = useAsync(() => api.get(`/lms/quizzes/${quiz._id}/attempts`), [quiz._id]);
   const [marking, setMarking] = useState(null);
+  async function reset(a) {
+    if (!window.confirm(`Reset ${a.student?.name}'s attempt (${a.score}/${a.maxScore})?\n\nThe result is deleted and they can take "${quiz.title}" again. They will be told.`)) return;
+    try { const r = await api.del(`/lms/attempts/${a._id}`); toast(r.message); state.reload(); onChanged?.(); } catch (e) { toast(e.message, 'bad'); }
+  }
   return (
     <Modal title={`Results: ${quiz.title}`} onClose={onClose} footer={<button className="btn" onClick={onClose}>Close</button>}>
       <Loading state={state}>
@@ -786,6 +791,7 @@ function Attempts({ quiz, onClose, onChanged }) {
               {a.status === 'pending' ? <span className="chip warn">Needs marking</span> : null}
               <span className="tag num">{a.score}/{a.maxScore}</span>
               {quiz.kind === 'weekly' || a.status === 'pending' ? <button className={`btn sm ${a.status === 'pending' ? 'primary' : ''}`} onClick={() => setMarking(a._id)}>{a.status === 'pending' ? 'Mark' : 'Review'}</button> : null}
+              <button className="btn sm ghost" onClick={() => reset(a)} title="Delete this result so the student can take the quiz again">Reset</button>
             </div>
           ))}</div>
         ))}
